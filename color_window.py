@@ -1,119 +1,170 @@
+import geopandas as gpd
+import json
+import matplotlib.pyplot as plt
+import pandas as pd
 import tkinter as tk
-from color_utils import generate_color_ramp, hsb_to_rgb, generate_and_display_color_palette, generate_styled_geojson, get_styled_geojson, set_color_ramp
+from color_utils import generate_color_ramp, hsb_to_rgb, generate_and_display_color_palette, set_color_ramp, get_styled_geojson, generate_styled_geojson
+from folium_window import FoliumWindowLogic, FoliumWindowGUI
+from matplotlib.colors import ListedColormap
+from typing import Any, List, Tuple
 
-class ColorWindow(tk.Toplevel):
-    def __init__(self, master=None, working_object_a=None, working_object_b=None):
-        super().__init__(master)
+
+class ColorWindowLogic:
+    def __init__(self, working_object_a=None, working_object_b=None):
         self.working_object_a = working_object_a
         self.working_object_b = working_object_b
+        self.color_ramp = None
+
+    def generate_color_ramp(self, hue1: int, hue2: int, bins: int, ramp_type: str) -> List[Tuple[int, int, int]]:
+        return generate_color_ramp(hue1, hue2, bins, ramp_type)
+
+    def hsb_to_rgb(self, h: float, s: float, b: float) -> Tuple[float, float, float]:
+        return hsb_to_rgb(h, s, b)
+
+    def generate_and_display_color_palette(self, canvas: Any, apply_button: Any, hue1: int, hue2: int, bins: int, ramp_type: str) -> List[Tuple[int, int, int]]:
+        return generate_and_display_color_palette(canvas, apply_button, hue1, hue2, bins, ramp_type)
+
+    def set_color_ramp(self, color_ramp_listbox: Any, text_widget_c: Any) -> str:
+        return set_color_ramp(color_ramp_listbox, text_widget_c)
+
+    def get_styled_geojson(self, geojson_data: Any, selected_property: str, classification_method: str, bins: int, color_ramp: List[Tuple[int, int, int]]) -> str:
+        return get_styled_geojson(geojson_data, selected_property, classification_method, bins, color_ramp)
+
+    def generate_styled_geojson(self, color_ramp: List[Tuple[int, int, int]], bins: int, classification_method: str) -> str:
+        return generate_styled_geojson(color_ramp, bins, classification_method)
+
+
+class ColorWindowGUI(tk.Toplevel):
+    def __init__(self, master=None, logic=None, folium_window=None):
+        super().__init__(master)
+        self.logic = logic
+        self.folium_window = folium_window
         self.create_widgets()
 
     def create_widgets(self):
-    
-        hue_label = tk.Label(self, text='Hue 1:')
-        hue_label.pack()
-        hue_slider = tk.Scale(self, from_=0, to=360, orient=tk.HORIZONTAL)
-        hue_slider.set(0)
-        hue_slider.pack()
-        hue_entry_var = tk.StringVar(value='0')
-        hue_entry_var.trace('w', lambda *args: update_scale_from_entry(hue_slider, hue_entry_var.get()))
-        hue_entry = tk.Entry(self, textvariable=hue_entry_var)
-        hue_entry.pack()
+        try:
+            # create the hue label and slider
+            self.hue_label = tk.Label(self, text='Hue 1:')
+            self.hue_label.pack()
+            self.hue_slider = tk.Scale(self, from_=0, to=360, orient=tk.HORIZONTAL)
+            self.hue_slider.set(0)
+            self.hue_slider.pack()
 
-        hue2_label = tk.Label(self, text='Hue 2:')
-        hue2_slider = tk.Scale(self, from_=0, to=360, orient=tk.HORIZONTAL)
-        hue2_slider.set(0)
-        hue2_entry_var = tk.StringVar(value='0')
-        hue2_entry_var.trace('w', lambda *args: update_scale_from_entry(hue2_slider, hue2_entry_var.get()))
-        hue2_entry = tk.Entry(self, textvariable=hue2_entry_var)
+            # create the hue entry field
+            self.hue_entry_var = tk.StringVar(value='0')
+            self.hue_entry_var.trace('w', lambda *args: self.update_scale_from_entry(self.hue_slider, self.hue_entry_var.get()))
+            self.hue_entry = tk.Entry(self, textvariable=self.hue_entry_var)
+            self.hue_entry.pack()
 
-        bins_label = tk.Label(self, text='Number of bins:')
-        bins_label.pack()
-        bins_slider = tk.Scale(self, from_=2, to=20, orient=tk.HORIZONTAL)
-        bins_slider.set(2)
-        bins_slider.pack()
+            # create the second hue label and slider
+            self.hue2_label = tk.Label(self, text='Hue 2:')
+            self.hue2_slider = tk.Scale(self, from_=0, to=360, orient=tk.HORIZONTAL)
+            self.hue2_slider.set(0)
+            self.hue2_entry_var = tk.StringVar(value='0')
+            self.hue2_entry_var.trace('w', lambda *args: update_scale_from_entry(self.hue2_slider, self.hue2_entry_var.get()))
+            self.hue2_entry = tk.Entry(self, textvariable=self.hue2_entry_var)
 
-        ramp_type_label = tk.Label(self,text='Color ramp type:')
-        ramp_type_label.pack()
-        ramp_type_var = tk.StringVar(value='sequential')
-        sequential_ramp_button = tk.Radiobutton(self,text='Sequential',variable=ramp_type_var,value='sequential', command=lambda: self.update_hue2_slider_state(hue2_label, hue2_slider, hue2_entry, ramp_type_var.get()))
-        sequential_ramp_button.pack()
-        diverging_ramp_button = tk.Radiobutton(self,text='Diverging',variable=ramp_type_var,value='diverging', command=lambda: self.update_hue2_slider_state(hue2_label, hue2_slider, hue2_entry, ramp_type_var.get()))
-        diverging_ramp_button.pack()
+            # create the bins label and slider
+            self.bins_label = tk.Label(self, text='Number of bins:')
+            self.bins_label.pack()
+            self.bins_slider = tk.Scale(self, from_=2, to=20, orient=tk.HORIZONTAL)
+            self.bins_slider.set(2)
+            self.bins_slider.pack()
 
-        self.update_hue2_slider_state(hue2_label, hue2_slider, hue2_entry, ramp_type_var.get())
-        
-        canvas = tk.Canvas(self, width=200, height=50)
-        canvas.pack()
-        
-        classification_method_label = tk.Label(self, text='Classification method:')
-        classification_method_label.pack()
-        
-        classification_method_var = tk.StringVar(value='quantiles')
-        classification_method_options = ['quantiles', 'equal_interval', 'standard_deviation']
-        classification_method_menu = tk.OptionMenu(self, classification_method_var, *classification_method_options)
-        classification_method_menu.pack()
+            # create the ramp type label and radio buttons
+            self.ramp_type_label = tk.Label(self,text='Color ramp type:')
+            self.ramp_type_label.pack()
+            self.ramp_type_var = tk.StringVar(value='sequential')
+            self.sequential_ramp_button = tk.Radiobutton(self,text='Sequential',variable=self.ramp_type_var,value='sequential', command=lambda: self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get()))
+            self.sequential_ramp_button.pack()
+            self.diverging_ramp_button = tk.Radiobutton(self,text='Diverging',variable=self.ramp_type_var,value='diverging', command=lambda: self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get()))
+            self.diverging_ramp_button.pack()
 
-        color_ramp = None
+            # update the state of the second hue slider
+            self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get())
 
-        generate_button = tk.Button(self, text='Generate Color Palette', command=on_generate_button_click)
-        generate_button.pack()
+            # create the canvas
+            self.canvas = tk.Canvas(self, width=200, height=50)
+            self.canvas.pack()
 
-        apply_button = tk.Button(self, text='Preview Color Palette', state=tk.DISABLED, command=on_apply_button_click)
-        apply_button.pack()
+            # create the classification method label and option menu
+            self.classification_method_label = tk.Label(self, text='Classification method:')
+            self.classification_method_label.pack()
+            self.classification_method_var = tk.StringVar(value='quantiles')
+            self.classification_method_options = ['quantiles', 'equal_interval', 'standard_deviation']
+            self.classification_method_menu = tk.OptionMenu(self, self.classification_method_var, *self.classification_method_options)
+            self.classification_method_menu.pack()
 
-        pass_data_button = tk.Button(self, text='Add this Layer to Folium Map', command=self.on_pass_data_button_click)
-        pass_data_button.pack()
-        
-        def get_hue1(self):
-            return self.hue_slider.get()
+            color_ramp = None
 
-        def get_hue2(self):
-            return self.hue2_slider.get()
+            # create the generate and apply buttons
+            self.generate_button = tk.Button(self, text='Generate Color Palette', command=self.on_generate_button_click)
+            self.generate_button.pack()
+            
+            self.apply_button = tk.Button(self, text='Preview Color Palette', state=tk.DISABLED, command=self.on_apply_button_click)
+            self.apply_button.pack()
 
-        def get_bins(self):
-            return self.bins_slider.get()
+            self.pass_data_button = tk.Button(self, text='Add this Layer to Folium Map', state=tk.DISABLED, command=self.on_pass_data_button_click)
+            self.pass_data_button.pack()
+        except Exception as e:
+            print(f"An error occurred while creating widgets: {e}")
 
-        def get_ramp_type(self):
-            return self.ramp_type_var.get()
+    def on_generate_button_click(self):
+        self.logic.color_ramp = self.logic.generate_and_display_color_palette(self.canvas, self.apply_button, self.hue_slider.get(), self.hue2_slider.get(), self.bins_slider.get(), self.ramp_type_var.get())
+        self.apply_button.config(state=tk.NORMAL)
 
-        def generate_color_palette(parent, on_apply_callback, working_object_a, working_object_b):
-            color_window = tk.Toplevel(parent)
-            color_window.title('Generate Color Palette')
+    def on_apply_button_click(self):
+        # Generate the styled GeoJSON data
+        geojson_str = self.logic.get_styled_geojson(self.logic.working_object_a, self.logic.working_object_b, self.classification_method_var.get(), self.bins_slider.get(), self.logic.color_ramp)
+        self.pass_data_button.config(state=tk.NORMAL)
+        if geojson_str:
+            # Convert the GeoJSON string to a GeoDataFrame
+            gdf = gpd.GeoDataFrame.from_features(json.loads(geojson_str))
 
-        def on_generate_button_click():
-            nonlocal color_ramp
-            color_ramp = generate_and_display_color_palette(canvas, apply_button, hue_slider.get(), hue2_slider.get(), bins_slider.get(), ramp_type_var.get())
-            apply_button.config(state=tk.NORMAL)
+            # Create a colormap from the selected color ramp
+            if self.logic.color_ramp:
+                colors = [self.logic.hsb_to_rgb(h, s, b) for h, s, b in self.logic.color_ramp]
+                cmap = ListedColormap(colors)
+            else:
+                cmap = None
 
-        generate_button = tk.Button(self, text='Generate Color Palette', command=on_generate_button_click)
-        generate_button.pack()
+            # Plot the GeoDataFrame using the custom colormap
+            if cmap:
+                gdf.plot(column='bin', cmap=cmap)
+            else:
+                gdf.plot()
+                
+            plt.show()
 
-        def on_apply_button_click(self):
-            # Generate the styled GeoJSON data
-            self.styled_geojson = generate_styled_geojson(self.color_ramp, self.bins_slider.get(), self.classification_method_var.get(), self.working_object_a, self.working_object_b)
+    def on_pass_data_button_click(self):
+        print("on_pass_data_button_click called")
 
-        apply_button = tk.Button(self, text='Preview Color Palette', state=tk.DISABLED, command=on_apply_button_click)
-        apply_button.pack()
-
-        def on_pass_data_button_click(self):
+        # Generate the styled GeoJSON data
+        geojson_str = self.logic.get_styled_geojson(self.logic.working_object_a, self.logic.working_object_b, self.classification_method_var.get(), self.bins_slider.get(), self.logic.color_ramp)
+        if geojson_str:
             # Pass the data to the FoliumWindow instance
-            if self.folium_window and self.styled_geojson:
-                self.folium_window.add_layer(self.styled_geojson)
+            if hasattr(self.master, 'folium_window') and self.master.folium_window:
+                # Add a new layer to the folium window
+                self.master.folium_window.add_layer(geojson_str)
 
-    def update_hue2_slider_state(self, hue2_label, hue2_slider, hue2_entry, ramp_type):
-        if ramp_type == 'diverging':
-            hue2_label.pack()
-            hue2_slider.pack()
-            hue2_entry.pack()
+            # Enable the folium button in the main window
+            if hasattr(self.master, 'folium_button'):
+                print("enabling folium_button")
+                self.master.folium_button.config(state=tk.NORMAL)
+
+    def update_hue2_slider_state(self, hue2_label, hue2_slider, hue2_entry, ramp_type_var):
+        if self.ramp_type_var.get() == 'diverging':
+            self.hue2_label.pack()
+            self.hue2_slider.pack()
+            self.hue2_entry.pack()
         else:
-            hue2_label.pack_forget()
-            hue2_slider.pack_forget()
-            hue2_entry.pack_forget()
+            self.hue2_label.pack_forget()
+            self.hue2_slider.pack_forget()
+            self.hue2_entry.pack_forget()
 
-    def update_scale_from_entry(scale, value):
+    @staticmethod
+    def update_scale_from_entry(scale: Any, value: str) -> None:
         try:
             scale.set(int(value))
         except ValueError:
             pass
-        
