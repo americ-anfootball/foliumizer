@@ -1,10 +1,13 @@
-import tkinter as tk
 import colorsys
 import geopandas as gpd
-import pandas as pd
-from matplotlib.colors import ListedColormap
-import matplotlib.pyplot as plt
 import json
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import scipy
+import tkinter as tk
+from matplotlib.colors import ListedColormap
+from scipy.stats.mstats import mquantiles
 
 def generate_color_ramp(hue1, hue2, bins, ramp_type):
     color_ramp = []
@@ -81,13 +84,16 @@ def get_styled_geojson(geojson_data, selected_property, classification_method, b
     if selected_property:
         # Choose a classification method
         if classification_method == 'quantiles':
-            bin_edges = pd.qcut(gdf[selected_property], q=bins, retbins=True)[1]
+            bin_edges = mquantiles(gdf[selected_property], prob=np.linspace(0, 1, bins + 1))
         elif classification_method == 'equal_interval':
-            bin_edges = pd.cut(gdf[selected_property], bins=bins, retbins=True)[1]
+            bin_edges = np.linspace(gdf[selected_property].min(), gdf[selected_property].max(), bins + 1)
         elif classification_method == 'standard_deviation':
-            std = gdf[selected_property].std()
-            mean = gdf[selected_property].mean()
-            bin_edges = [mean + i * std for i in range(-bins // 2, bins // 2 + 1)]
+            p = [100 / bins * i for i in range(bins + 1)]
+            bin_edges = np.percentile(gdf[selected_property], p)
+        else:
+            raise ValueError(f"Invalid classification method: {classification_method}")
+
+        gdf['bin'] = pd.cut(gdf[selected_property], bins=bin_edges, labels=False, include_lowest=True)
         
         # Add an extra bin edge that is smaller than the minimum value of the data
         min_value = gdf[selected_property].min()
