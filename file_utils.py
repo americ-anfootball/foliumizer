@@ -1,10 +1,9 @@
 # file_utils.py
 
 import geopandas as gpd
-import tkinter as tk
-from tkinter import filedialog
-from tkinter import Tk
 import json
+import tkinter as tk
+from tkinter import Tk, filedialog
 
 def import_data():
     root = Tk()
