@@ -1,9 +1,11 @@
-# file_utils.py
-
 import geopandas as gpd
 import json
+import os
 import tkinter as tk
 from tkinter import Tk, filedialog
+
+# create a global variable to store the mapping between aliases and file paths
+file_path_mapping = {}
 
 def import_data():
     root = Tk()
@@ -43,13 +45,20 @@ def open_file_dialog():
 def add_files(listbox):
     file_paths = open_file_dialog()
     for file_path in file_paths:
-        listbox.insert(tk.END, file_path)
+        # Use os.path.basename to get the filename without the path
+        # Use os.path.splitext to split the filename and extension
+        name, _ = os.path.splitext(os.path.basename(file_path))
+        # store the mapping between the alias and the full file path
+        file_path_mapping[name] = file_path
+        listbox.insert(tk.END, name)
 
 def on_select(listbox, property_listbox):
     selected_items = listbox.curselection()
     for item in selected_items:
         value = listbox.get(item)
-        load_vector_data(value, property_listbox)
+        # look up the full file path based on the alias
+        file_path = file_path_mapping[value]
+        load_vector_data(file_path, property_listbox)
 
 def load_vector_data(file_path, property_listbox):
     with open(file_path, "r") as f:
@@ -68,21 +77,29 @@ def set_working_object_a(listbox, text_widget_a):
     if not selected_file_indices:
         message = "Please select a file"
         print(message)
-        # insert message into text_widget instead of printing it to console
+        # delete the existing content of the text widget
+        text_widget_a.delete("1.0", tk.END)
+        # insert the new message into the text widget
         text_widget_a.insert(tk.END, message + "\n")
         return None
 
     selected_file_index = selected_file_indices[0]
-    selected_file = listbox.get(selected_file_index)
+    selected_file_alias = listbox.get(selected_file_index)
+    # look up the full file path based on the alias
+    selected_file = file_path_mapping[selected_file_alias]
 
     # Load the geojson data into a geopandas GeoDataFrame
     working_object_a = gpd.read_file(selected_file)
+    # set the source_file attribute of the GeoDataFrame
+    working_object_a.source_file = selected_file
 
     message = f"Working object geojson data set to {selected_file}"
     
     print(message)
     
-    # insert message into text_widget_a instead of printing it to console
+    # delete the existing content of the text widget
+    text_widget_a.delete("1.0", tk.END)
+    # insert the new message into the text widget
     text_widget_a.insert(tk.END, message + "\n")
 
     return working_object_a
@@ -92,7 +109,9 @@ def set_working_object_b(property_listbox, text_widget_b):
     if not selected_property_indices:
         message = "Please select a property"
         print(message)
-        # insert message into text_widget instead of printing it to console
+        # delete the existing content of the text widget
+        text_widget_b.delete("1.0", tk.END)
+        # insert the new message into the text widget
         text_widget_b.insert(tk.END, message + "\n")
         return None
 
@@ -104,14 +123,11 @@ def set_working_object_b(property_listbox, text_widget_b):
 
     message = f"Property of working object set to {selected_property}"
     
-    # insert message into text_widget_b instead of printing it to console
+    # delete the existing content of the text widget
+    text_widget_b.delete("1.0", tk.END)
+    # insert the new message into the text widget
     text_widget_b.insert(tk.END, message + "\n")
 
     print(f"working_object_b: {working_object_b}")
 
     return working_object_b
-
-#file_path = import_data()
-#data = read_file(file_path)
-
-
