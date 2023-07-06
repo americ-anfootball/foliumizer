@@ -35,10 +35,11 @@ class ColorWindowLogic:
 
 
 class ColorWindowGUI(tk.Toplevel):
-    def __init__(self, master=None, logic=None, folium_window=None):
+    def __init__(self, master=None, app=None, logic=None):
         super().__init__(master)
+        self.app = app
         self.logic = logic
-        self.folium_window = folium_window
+        self.apply_button_clicked = False
         self.create_widgets()
 
     def create_widgets(self):
@@ -113,10 +114,13 @@ class ColorWindowGUI(tk.Toplevel):
         self.logic.color_ramp = self.logic.generate_and_display_color_palette(self.canvas, self.apply_button, self.hue_slider.get(), self.hue2_slider.get(), self.bins_slider.get(), self.ramp_type_var.get())
         self.apply_button.config(state=tk.NORMAL)
 
+    def enable_pass_data_button(self):
+        if self.apply_button_clicked and hasattr(self.app, 'folium_window') and self.app.folium_window is not None:
+            self.pass_data_button.config(state=tk.NORMAL)
+
     def on_apply_button_click(self):
         # Generate the styled GeoJSON data
         geojson_str = self.logic.get_styled_geojson(self.logic.working_object_a, self.logic.working_object_b, self.classification_method_var.get(), self.bins_slider.get(), self.logic.color_ramp)
-        self.pass_data_button.config(state=tk.NORMAL)
         if geojson_str:
             # Convert the GeoJSON string to a GeoDataFrame
             gdf = gpd.GeoDataFrame.from_features(json.loads(geojson_str))
@@ -135,22 +139,28 @@ class ColorWindowGUI(tk.Toplevel):
                 gdf.plot()
                 
             plt.show()
+            
+        self.apply_button_clicked = True
 
     def on_pass_data_button_click(self):
-        print("on_pass_data_button_click called")
-
+        #print("on_pass_data_button_click called")
+        #print(f"self.app: {self.app}")
         # Generate the styled GeoJSON data
         geojson_str = self.logic.get_styled_geojson(self.logic.working_object_a, self.logic.working_object_b, self.classification_method_var.get(), self.bins_slider.get(), self.logic.color_ramp)
         if geojson_str:
             # Pass the data to the FoliumWindow instance
-            if hasattr(self.master, 'folium_window') and self.master.folium_window:
-                # Add a new layer to the folium window
-                self.master.folium_window.add_layer(geojson_str)
+            #print(f"hasattr(self.app, 'folium_window'): {hasattr(self.app, 'folium_window')}")
+            if hasattr(self.app, 'folium_window'):
+                #print(f"self.app.folium_window: {self.app.folium_window}")
+                if self.app.folium_window:
+                    #print("passing data to folium window")
+                    # Add a new layer to the folium window
+                    self.app.folium_window.add_layer(geojson_str)
 
-            # Enable the folium button in the main window
-            if hasattr(self.master, 'folium_button'):
-                print("enabling folium_button")
-                self.master.folium_button.config(state=tk.NORMAL)
+        # Enable the folium button in the main window
+        if hasattr(self.app, 'folium_button'):
+            #print("enabling folium_button")
+            self.app.folium_button.config(state=tk.NORMAL)
 
     def update_hue2_slider_state(self, hue2_label, hue2_slider, hue2_entry, ramp_type_var):
         if self.ramp_type_var.get() == 'diverging':
