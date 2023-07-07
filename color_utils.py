@@ -8,6 +8,7 @@ import scipy
 import tkinter as tk
 from matplotlib.colors import ListedColormap
 from scipy.stats.mstats import mquantiles
+from typing import Any, List, Tuple
 
 def generate_color_ramp(hue1, hue2, bins, ramp_type):
     color_ramp = []
@@ -39,8 +40,10 @@ def hsb_to_rgb(h, s, b):
     r_out, g_out, b_out = colorsys.hsv_to_rgb(h/360, s, b)
     return r_out, g_out, b_out
 
-def generate_and_display_color_palette(canvas, apply_button, hue1, hue2, bins, ramp_type):
+def generate_and_display_color_palette(canvas: Any, apply_button: Any, hue1: int, hue2: int, bins: int, ramp_type: str, reverse_color_ramp_var: tk.BooleanVar) -> List[Tuple[int, int, int]]:
     color_ramp = generate_color_ramp(hue1, hue2, bins, ramp_type)
+    if reverse_color_ramp_var.get():
+        color_ramp = reverse_color_ramp(color_ramp)
 
     canvas.delete('all')
 
@@ -55,6 +58,9 @@ def generate_and_display_color_palette(canvas, apply_button, hue1, hue2, bins, r
         canvas.create_rectangle(x0, y0, x1, y1, fill=fill_color)
 
     return color_ramp
+
+def reverse_color_ramp(color_ramp):
+    return color_ramp[::-1]
 
 def set_color_ramp(color_ramp_listbox, text_widget_c):
     selected_color_ramp_indices = color_ramp_listbox.curselection()
