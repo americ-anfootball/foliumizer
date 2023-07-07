@@ -3,7 +3,7 @@ import json
 import matplotlib.pyplot as plt
 import pandas as pd
 import tkinter as tk
-from color_utils import generate_color_ramp, hsb_to_rgb, generate_and_display_color_palette, set_color_ramp, get_styled_geojson, generate_styled_geojson
+from color_utils import generate_color_ramp, hsb_to_rgb, generate_and_display_color_palette, set_color_ramp, get_styled_geojson, generate_styled_geojson, reverse_color_ramp
 from folium_window import FoliumWindowLogic, FoliumWindowGUI
 from matplotlib.colors import ListedColormap
 from typing import Any, List, Tuple
@@ -21,8 +21,8 @@ class ColorWindowLogic:
     def hsb_to_rgb(self, h: float, s: float, b: float) -> Tuple[float, float, float]:
         return hsb_to_rgb(h, s, b)
 
-    def generate_and_display_color_palette(self, canvas: Any, apply_button: Any, hue1: int, hue2: int, bins: int, ramp_type: str) -> List[Tuple[int, int, int]]:
-        return generate_and_display_color_palette(canvas, apply_button, hue1, hue2, bins, ramp_type)
+    def generate_and_display_color_palette(self, canvas: Any, apply_button: Any, hue1: int, hue2: int, bins: int, ramp_type: str, reverse_color_ramp_var: tk.BooleanVar) -> List[Tuple[int, int, int]]:
+        return generate_and_display_color_palette(canvas, apply_button, hue1, hue2, bins, ramp_type, reverse_color_ramp_var)
 
     def set_color_ramp(self, color_ramp_listbox: Any, text_widget_c: Any) -> str:
         return set_color_ramp(color_ramp_listbox, text_widget_c)
@@ -80,6 +80,11 @@ class ColorWindowGUI(tk.Toplevel):
             self.sequential_ramp_button.pack()
             self.diverging_ramp_button = tk.Radiobutton(self,text='Diverging',variable=self.ramp_type_var,value='diverging', command=lambda: self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get()))
             self.diverging_ramp_button.pack()
+            self.reverse_color_ramp_var = tk.BooleanVar()
+            self.reverse_color_ramp_checkbox = tk.Checkbutton(self, text="Reverse Color Ramp", variable=self.reverse_color_ramp_var)
+            self.reverse_color_ramp_checkbox.pack()
+
+            self.reverse_color_ramp_var.trace("w", lambda *args: self.on_reverse_color_ramp_changed())
 
             # update the state of the second hue slider
             self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get())
@@ -111,11 +116,20 @@ class ColorWindowGUI(tk.Toplevel):
             print(f"An error occurred while creating widgets: {e}")
 
     def on_generate_button_click(self):
-        self.logic.color_ramp = self.logic.generate_and_display_color_palette(self.canvas, self.apply_button, self.hue_slider.get(), self.hue2_slider.get(), self.bins_slider.get(), self.ramp_type_var.get())
+        self.logic.color_ramp = self.logic.generate_and_display_color_palette(self.canvas, self.apply_button, self.hue_slider.get(), self.hue2_slider.get(), self.bins_slider.get(), self.ramp_type_var.get(), self.reverse_color_ramp_var)
         self.apply_button.config(state=tk.NORMAL)
 
+    def on_reverse_color_ramp_changed(self):
+        print("on_reverse_color_ramp_changed called")
+        if self.logic.color_ramp is not None:
+            print(f"color_ramp before: {self.logic.color_ramp}")
+            if self.reverse_color_ramp_var.get():
+                self.logic.color_ramp = reverse_color_ramp(self.logic.color_ramp)
+            print(f"color_ramp after: {self.logic.color_ramp}")
+            self.on_generate_button_click()
+            print(f"color_ramp: {self.logic.color_ramp}")
+
     def on_apply_button_click(self):
-        print("on_apply_button_click called")
         try:
             # Generate the styled GeoJSON data
             geojson_str = self.logic.get_styled_geojson(self.logic.working_object_a, self.logic.working_object_b, self.classification_method_var.get(), self.bins_slider.get(), self.logic.color_ramp)
@@ -139,38 +153,26 @@ class ColorWindowGUI(tk.Toplevel):
                 plt.show(block=False)
                 
             self.apply_button_clicked = True
-            print(f"apply_button_clicked set to {self.apply_button_clicked}")
+            self.enable_pass_data_button()
         except Exception as e:
             print(f"An error occurred in on_apply_button_click: {e}")
-        print("on_apply_button_click finished")
 
     def enable_pass_data_button(self):
-        print("enable_pass_data_button called")
-        print(f"apply_button_clicked: {self.apply_button_clicked}")
         if self.apply_button_clicked and hasattr(self.app, 'folium_window') and self.app.folium_window is not None:
-            print("enabling pass_data_button")
             self.pass_data_button.config(state=tk.NORMAL)
-        else:
-            print("conditions for enabling pass_data_button not met")
 
     def on_pass_data_button_click(self):
-        #print("on_pass_data_button_click called")
-        #print(f"self.app: {self.app}")
         # Generate the styled GeoJSON data
         geojson_str = self.logic.get_styled_geojson(self.logic.working_object_a, self.logic.working_object_b, self.classification_method_var.get(), self.bins_slider.get(), self.logic.color_ramp)
         if geojson_str:
             # Pass the data to the FoliumWindow instance
-            #print(f"hasattr(self.app, 'folium_window'): {hasattr(self.app, 'folium_window')}")
             if hasattr(self.app, 'folium_window'):
-                #print(f"self.app.folium_window: {self.app.folium_window}")
                 if self.app.folium_window:
-                    #print("passing data to folium window")
                     # Add a new layer to the folium window
                     self.app.folium_window.add_layer(geojson_str)
 
         # Enable the folium button in the main window
         if hasattr(self.app, 'folium_button'):
-            #print("enabling folium_button")
             self.app.folium_button.config(state=tk.NORMAL)
 
     def update_hue2_slider_state(self, hue2_label, hue2_slider, hue2_entry, ramp_type_var):
