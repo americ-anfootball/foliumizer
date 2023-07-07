@@ -156,21 +156,22 @@ class AppGUI:
     def open_color_window(self):
         color_logic = ColorWindowLogic(working_object_a=self.logic.working_object_a, working_object_b=self.logic.working_object_b)
         color_window = ColorWindowGUI(master=self.root, app=self, logic=color_logic)
+        self.color_window = color_window
         color_window.mainloop()
         
     def open_folium_window(self):
-        # Create an instance of the FoliumWindowLogic class
+        print("open_folium_window called")
         folium_logic = FoliumWindowLogic(working_object_a=self.logic.working_object_a, working_object_b=self.logic.working_object_b)
 
-        # Create an instance of the FoliumWindowGUI class
         folium_window = FoliumWindowGUI(master=self.root, logic=folium_logic)
 
-        # Store a reference to the folium window as an instance attribute
         self.folium_window = folium_window
         
-        # enable the pass data button in the color window
         if hasattr(self, 'color_window'):
+            print("color_window attribute is set")
             self.color_window.enable_pass_data_button()
+        else:
+            print("color_window attribute is not set")
 
 if __name__ == "__main__":
     logic = AppLogic()
