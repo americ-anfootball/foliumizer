@@ -114,33 +114,44 @@ class ColorWindowGUI(tk.Toplevel):
         self.logic.color_ramp = self.logic.generate_and_display_color_palette(self.canvas, self.apply_button, self.hue_slider.get(), self.hue2_slider.get(), self.bins_slider.get(), self.ramp_type_var.get())
         self.apply_button.config(state=tk.NORMAL)
 
-    def enable_pass_data_button(self):
-        if self.apply_button_clicked and hasattr(self.app, 'folium_window') and self.app.folium_window is not None:
-            self.pass_data_button.config(state=tk.NORMAL)
-
     def on_apply_button_click(self):
-        # Generate the styled GeoJSON data
-        geojson_str = self.logic.get_styled_geojson(self.logic.working_object_a, self.logic.working_object_b, self.classification_method_var.get(), self.bins_slider.get(), self.logic.color_ramp)
-        if geojson_str:
-            # Convert the GeoJSON string to a GeoDataFrame
-            gdf = gpd.GeoDataFrame.from_features(json.loads(geojson_str))
+        print("on_apply_button_click called")
+        try:
+            # Generate the styled GeoJSON data
+            geojson_str = self.logic.get_styled_geojson(self.logic.working_object_a, self.logic.working_object_b, self.classification_method_var.get(), self.bins_slider.get(), self.logic.color_ramp)
+            if geojson_str:
+                # Convert the GeoJSON string to a GeoDataFrame
+                gdf = gpd.GeoDataFrame.from_features(json.loads(geojson_str))
 
-            # Create a colormap from the selected color ramp
-            if self.logic.color_ramp:
-                colors = [self.logic.hsb_to_rgb(h, s, b) for h, s, b in self.logic.color_ramp]
-                cmap = ListedColormap(colors)
-            else:
-                cmap = None
+                # Create a colormap from the selected color ramp
+                if self.logic.color_ramp:
+                    colors = [self.logic.hsb_to_rgb(h, s, b) for h, s, b in self.logic.color_ramp]
+                    cmap = ListedColormap(colors)
+                else:
+                    cmap = None
 
-            # Plot the GeoDataFrame using the custom colormap
-            if cmap:
-                gdf.plot(column='bin', cmap=cmap)
-            else:
-                gdf.plot()
+                # Plot the GeoDataFrame using the custom colormap
+                if cmap:
+                    gdf.plot(column='bin', cmap=cmap)
+                else:
+                    gdf.plot()
+                    
+                plt.show(block=False)
                 
-            plt.show()
-            
-        self.apply_button_clicked = True
+            self.apply_button_clicked = True
+            print(f"apply_button_clicked set to {self.apply_button_clicked}")
+        except Exception as e:
+            print(f"An error occurred in on_apply_button_click: {e}")
+        print("on_apply_button_click finished")
+
+    def enable_pass_data_button(self):
+        print("enable_pass_data_button called")
+        print(f"apply_button_clicked: {self.apply_button_clicked}")
+        if self.apply_button_clicked and hasattr(self.app, 'folium_window') and self.app.folium_window is not None:
+            print("enabling pass_data_button")
+            self.pass_data_button.config(state=tk.NORMAL)
+        else:
+            print("conditions for enabling pass_data_button not met")
 
     def on_pass_data_button_click(self):
         #print("on_pass_data_button_click called")
