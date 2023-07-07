@@ -160,7 +160,6 @@ class AppGUI:
         color_window.mainloop()
         
     def open_folium_window(self):
-        print("open_folium_window called")
         folium_logic = FoliumWindowLogic(working_object_a=self.logic.working_object_a, working_object_b=self.logic.working_object_b)
 
         folium_window = FoliumWindowGUI(master=self.root, logic=folium_logic)
@@ -168,12 +167,10 @@ class AppGUI:
         self.folium_window = folium_window
         
         if hasattr(self, 'color_window'):
-            print("color_window attribute is set")
             self.color_window.enable_pass_data_button()
-        else:
-            print("color_window attribute is not set")
 
 if __name__ == "__main__":
     logic = AppLogic()
     gui = AppGUI(logic)
     gui.root.mainloop()
+	
