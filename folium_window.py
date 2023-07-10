@@ -22,11 +22,8 @@ class FoliumWindowLogic:
         # Initialize a list to hold the styled GeoJSON data for each layer
         styled_geojson_list = []
 
-        # Iterate over the layers in the Listbox
-        for i, layer in enumerate(self.gui.folium_listbox.get(0, tk.END)):
-            # Parse the layer string as a GeoJSON object
-            geojson_data = json.loads(layer)
-
+        # Iterate over the GeoJSON data in the geojson_data_list variable
+        for i, geojson_data in enumerate(self.gui.geojson_data_list):
             # Style the GeoJSON data using the style information appended to the layer
             for feature in geojson_data['features']:
                 feature['properties']['style'] = feature['properties'].get('style', {})
@@ -64,9 +61,12 @@ class FoliumWindowGUI(tk.Toplevel):
         super().__init__(master)
         self.logic = logic
         self.logic.gui = self
-        self.create_widgets()
         self.layer_count = 0
         self.top_layer = tk.StringVar()
+        self.map_title = tk.StringVar()
+        self.layer_control_var = tk.BooleanVar(value=True)
+        self.create_widgets()
+        self.geojson_data_list = []
 
     def create_widgets(self):
         # Create a frame to hold the Listbox and Scrollbars
@@ -98,10 +98,10 @@ class FoliumWindowGUI(tk.Toplevel):
         self.map_title_entry.pack()
         
         # Create an OptionMenu widget for selecting the folium basemap layer
-        basemap_options = ['stamen toner', 'stamen terrain', 'stamen watercolor', 'cartodb positron', 'cartodb dark matter', 'openstreetmap', 'none']
+        self.basemap_options = ['stamen toner', 'stamen terrain', 'stamen watercolor', 'cartodb positron', 'cartodb dark matter', 'openstreetmap', 'none']
         self.basemap_var = tk.StringVar(self)
-        self.basemap_var.set(basemap_options[0])
-        self.basemap_option_menu = tk.OptionMenu(self, self.basemap_var, *basemap_options)
+        self.basemap_var.set(self.basemap_options[0])
+        self.basemap_option_menu = tk.OptionMenu(self, self.basemap_var, *self.basemap_options)
         self.basemap_option_menu.pack()
 
         # Create a button to create the folium map from active layers
@@ -130,12 +130,59 @@ class FoliumWindowGUI(tk.Toplevel):
             self.top_layer_menu = tk.OptionMenu(self, self.top_layer, first_value)
             self.top_layer_menu.pack()
 
+        # Append the geojson_str data to the geojson_data_list variable
+        geojson_data = json.loads(geojson_str)
+        self.geojson_data_list.append(geojson_data)
+
     def create_map(self):
-        # Get the map title from the Entry widget
+        styled_geojson_list = self.geojson_data_list
+
+        top_layer = self.top_layer.get()
+
+        active_layers = list(self.folium_listbox.get(0, tk.END))
+
+        basemap_layer = self.basemap_var.get()
+
+        if basemap_layer == 'none':
+            m = folium.Map()
+        elif basemap_layer in self.basemap_options:
+            m = folium.Map(tiles=basemap_layer)
+        else:
+            raise ValueError(f"Invalid basemap layer: {basemap_layer}")
+
+        top_layer_value = self.top_layer.get()
+
+        min_lng, min_lat, max_lng, max_lat = float('inf'), float('inf'), float('-inf'), float('-inf')
+
+        def style_function(feature):
+            style = feature['properties'].get('style', {})
+            print(f"Feature: {feature}")
+            print(f"Style: {style}")
+            return style
+
+        for i, geojson_data in enumerate(styled_geojson_list):
+            layer_min_lng, layer_min_lat, layer_max_lng, layer_max_lat = calculate_bounding_box(geojson_data)
+
+            min_lng = min(min_lng, layer_min_lng)
+            min_lat = min(min_lat, layer_min_lat)
+            max_lng = max(max_lng, layer_max_lng)
+            max_lat = max(max_lat, layer_max_lat)
+
+            if i == top_layer_value:
+                folium.GeoJson(geojson_data, style_function=style_function, overlay=True, show=True).add_to(m)
+            else:
+                folium.GeoJson(geojson_data, style_function=style_function, overlay=True, show=False).add_to(m)
+
+        centroid_lng=(min_lng+max_lng)/2
+        centroid_lat=(min_lat+max_lat)/2
+
+        m.location=[centroid_lat,centroid_lng]
+
+        m.fit_bounds([[min_lat,min_lng],[max_lat,max_lng]])
+
         title = self.map_title.get()
-        
-        # Add a title to the map
-        title = self.gui.title_entry.get()
+
+        title = self.logic.gui.map_title_entry.get()
         if title:
             title_html = f"""
             <div id="map-title" style="position: fixed; bottom: 50px; left: 50px; height: 40px; border:2px solid grey; z-index:9999; font-size:20px; background-color: white;">  {title}
@@ -143,105 +190,26 @@ class FoliumWindowGUI(tk.Toplevel):
             <script>
                 // Get the map title element
                 var mapTitle = document.getElementById('map-title');
-                
+
                 // Measure the width of the title text
                 var canvas = document.createElement('canvas');
                 var context = canvas.getContext('2d');
                 context.font = '20px sans-serif';
                 var metrics = context.measureText(mapTitle.textContent);
-                
+
                 // Set the width of the map title element
                 mapTitle.style.width = (metrics.width + 20) + 'px';
             </script>
             """
             m.get_root().html.add_child(folium.Element(title_html))
 
-        # Get the selected top layer from the OptionMenu
-        top_layer = self.top_layer.get()
-
-        # Get the list of active layers from the Listbox
-        active_layers = list(self.folium_listbox.get(0, tk.END))
-
-        # Get the selected folium basemap layer from the OptionMenu widget
-        basemap_layer = self.basemap_var.get()
-
-        # Create a new folium map with the selected basemap layer
-        if basemap_layer == 'none':
-            m = folium.Map()
-        else:
-            m = folium.Map(tiles=basemap_layer)
-
-        # Get the value of the top layer
-        top_layer_value = self.top_layer.get()
-
-        # Calculate the bounding box of the GeoJSON data
-        min_lng, min_lat, max_lng, max_lat = float('inf'), float('inf'), float('-inf'), float('-inf')
-
-        # Define a style function
-        def style_function(feature):
-            return feature['properties'].get('style', {})
-
-        # Iterate over the layers in the Listbox
-        for i, layer in enumerate(self.folium_listbox.get(0, tk.END)):
-            # Parse the layer string as a GeoJSON object
-            geojson_data = json.loads(layer)
-
-            # Update the bounding box with the coordinates from this layer
-            for feature in geojson_data['features']:
-                coords = feature['geometry']['coordinates']
-                if feature['geometry']['type'] == 'Point':
-                    lng, lat = coords
-                    min_lng, max_lng = min(min_lng, lng), max(max_lng, lng)
-                    min_lat, max_lat = min(min_lat, lat), max(max_lat, lat)
-                elif feature['geometry']['type'] in ['LineString', 'MultiPoint']:
-                    for point in coords:
-                        lng, lat = point
-                        min_lng, max_lng = min(min_lng, lng), max(max_lng, lng)
-                        min_lat, max_lat = min(min_lat,lat),max(max_lat,lat)
-                elif feature['geometry']['type'] in ['Polygon', 'MultiLineString']:
-                    for ring in coords:
-                        for point in ring:
-                            lng,lat=point
-                            min_lng,max_lng=min(min_lng,lng),max(max_lng,lng)
-                            min_lat,max_lat=min(min_lat,lat),max(max_lat,lat)
-                elif feature['geometry']['type']=='MultiPolygon':
-                    for polygon in coords:
-                        for ring in polygon:
-                            for point in ring:
-                                lng,lat=point
-                                min_lng,max_lng=min(min_lng,lng),max(max_lng,lng)
-                                min_lat,max_lat=min(min_lat,lat),max(max_lat,lat)
-
-            # Check if this is the top layer
-            if layer == top_layer_value:
-                # Add this layer to the map with show=True and the style function
-                folium.GeoJson(geojson_data, style_function=style_function, overlay=True, show=True).add_to(m)
-            else:
-                # Add this layer to the map with show=False and the style function
-                folium.GeoJson(geojson_data, style_function=style_function, overlay=True, show=False).add_to(m)
-
-        # Calculate the centroid of the bounding box
-        centroid_lng=(min_lng+max_lng)/2
-        centroid_lat=(min_lat+max_lat)/2
-
-        # Center the folium map at the centroid of the bounding box
-        m.location=[centroid_lat,centroid_lng]
-
-        # Fit the map view to the bounding box of the GeoJSON data
-        m.fit_bounds([[min_lat,min_lng],[max_lat,max_lng]])
-
-        # Add a layer control to the map
-        if self.gui.layer_control_var.get():
+        if self.layer_control_var.get():
             LayerControl().add_to(m)
-            
-        # Display a file dialog window to select a file name and location for saving the folium map
+
         file_name = filedialog.asksaveasfilename(defaultextension=".html", filetypes=[("HTML Files", "*.html")])
 
-        # Save the folium map to the selected file
         m.save(file_name)
 
-        # Open the folium map in a web browser
         webbrowser.open(file_name)
 
-        # Return the folium map object
         return m
