@@ -89,13 +89,86 @@ class FoliumWindowGUI(tk.Toplevel):
         self.yscroll.config(command=self.folium_listbox.yview)
         self.xscroll.config(command=self.folium_listbox.xview)
         
+        # Create a label for the layer title entry
+        self.layer_title_label = tk.Label(self, text="Layer Title:")
+        self.layer_title_label.pack()
+
+        # Create an Entry widget for the layer title
+        self.layer_title_entry = tk.Entry(self)
+        self.layer_title_entry.pack()
+        
+        # Create a label for the popup properties Listbox
+        self.popup_properties_label = tk.Label(self, text="Select One or More Popup Properties:")
+        self.popup_properties_label.pack()
+        
+        # Create a Listbox for selecting the popup properties
+        self.popup_properties_listbox = tk.Listbox(self, selectmode=tk.MULTIPLE)
+        self.popup_properties_listbox.pack()
+        
+        # Create a button for updating the popup properties for the selected layer
+        self.update_popup_properties_button = tk.Button(self, text="Apply Selected Popup Properties for Selected Layer", command=self.update_popup_properties)
+        self.update_popup_properties_button.pack()
+        
         # Create a label for the map title entry
         self.map_title_label = tk.Label(self, text="Map Title:")
         self.map_title_label.pack()
-
+        
         # Create an Entry widget for the map title
         self.map_title_entry = tk.Entry(self, textvariable=self.map_title)
         self.map_title_entry.pack()
+        
+        # Create a label and OptionMenu for the map title placement
+        self.title_placement_label = tk.Label(self, text="Title Placement:")
+        self.title_placement_label.pack()
+        self.title_placement_var = tk.StringVar(value="bottom-left")
+        self.title_placement_options = ["top-left", "top-right", "bottom-left", "bottom-right"]
+        self.title_placement_menu = tk.OptionMenu(self, self.title_placement_var, *self.title_placement_options)
+        self.title_placement_menu.pack()
+        
+        # Create a label and Entry for the map title height
+        self.title_height_label = tk.Label(self, text="Title Height:")
+        self.title_height_label.pack()
+        self.title_height_entry = tk.Entry(self)
+        self.title_height_entry.insert(0, "40")
+        self.title_height_entry.pack()
+        
+        # Create a label and Entry for the map title border size
+        self.title_border_size_label = tk.Label(self, text="Title Border Size:")
+        self.title_border_size_label.pack()
+        self.title_border_size_entry = tk.Entry(self)
+        self.title_border_size_entry.insert(0, "2")
+        self.title_border_size_entry.pack()
+        
+        # Create a label and OptionMenu for the map title border color
+        self.title_border_color_label = tk.Label(self, text="Title Border Color:")
+        self.title_border_color_label.pack()
+        self.title_border_color_var = tk.StringVar(value="grey")
+        self.title_border_color_options = ["black", "grey", "white", "red", "green", "blue"]
+        self.title_border_color_menu = tk.OptionMenu(self, self.title_border_color_var, *self.title_border_color_options)
+        self.title_border_color_menu.pack()
+        
+        # Create a label and Entry for the map title font size
+        self.title_font_size_label = tk.Label(self, text="Title Font Size:")
+        self.title_font_size_label.pack()
+        self.title_font_size_entry = tk.Entry(self)
+        self.title_font_size_entry.insert(0, "20")
+        self.title_font_size_entry.pack()
+        
+        # Create a label and OptionMenu for the map title font color
+        self.title_font_color_label = tk.Label(self, text="Title Font Color:")
+        self.title_font_color_label.pack()
+        self.title_font_color_var = tk.StringVar(value="black")
+        self.title_font_color_options = ["black", "grey", "white", "red", "green", "blue"]
+        self.title_font_color_menu = tk.OptionMenu(self, self.title_font_color_var, *self.title_font_color_options)
+        self.title_font_color_menu.pack()
+        
+        # Create a label and OptionMenu for the map title background color
+        self.title_bg_color_label = tk.Label(self, text="Title Background Color:")
+        self.title_bg_color_label.pack()
+        self.title_bg_color_var = tk.StringVar(value="white")
+        self.title_bg_color_options = ["black", "grey", "white", "red", "green", "blue"]
+        self.title_bg_color_menu = tk.OptionMenu(self, self.title_bg_color_var, *self.title_bg_color_options)
+        self.title_bg_color_menu.pack()
         
         # Create an OptionMenu widget for selecting the folium basemap layer
         self.basemap_options = ['stamen toner', 'stamen terrain', 'stamen watercolor', 'cartodb positron', 'cartodb dark matter', 'openstreetmap', 'none']
@@ -111,6 +184,11 @@ class FoliumWindowGUI(tk.Toplevel):
     def add_layer(self, geojson_str):
         # Increment the layer count
         self.layer_count += 1
+
+        # Retrieve the layer title from the Entry widget
+        layer_title = self.layer_title_entry.get()
+        if not layer_title:
+            layer_title = f"Layer {self.layer_count}"
 
         # Insert the alias into the folium listbox
         alias = f"Layer {self.layer_count}"
@@ -134,10 +212,35 @@ class FoliumWindowGUI(tk.Toplevel):
         geojson_data = json.loads(geojson_str)
         self.geojson_data_list.append(geojson_data)
 
+    def update_popup_properties(self):
+        # Get the index of the currently selected layer
+        selected_layer_index = self.folium_listbox.curselection()[0]
+        
+        # Get the list of selected properties from the Listbox
+        selected_properties = [self.popup_properties_listbox.get(i) for i in self.popup_properties_listbox.curselection()]
+        
+        # Update the popup properties for each feature in the selected layer
+        geojson_data = self.geojson_data_list[selected_layer_index]
+        for feature in geojson_data["features"]:
+            if "properties" not in feature:
+                feature["properties"] = {}
+            feature["properties"]["popupProperties"] = selected_properties
+        
+        # Get the list of available properties for the selected layer
+        available_properties = set()
+        for feature in geojson_data["features"]:
+            available_properties.update(feature["properties"].keys())
+        
+        # Update the Listbox with the available properties
+        self.popup_properties_listbox.delete(0, tk.END)
+        for prop in sorted(available_properties):
+            self.popup_properties_listbox.insert(tk.END, prop)
+            
     def create_map(self):
         styled_geojson_list = self.geojson_data_list
 
-        top_layer = self.top_layer.get()
+        top_layer_value = self.top_layer.get()
+        top_layer_number = int(top_layer_value.split()[-1])
 
         active_layers = list(self.folium_listbox.get(0, tk.END))
 
@@ -150,16 +253,12 @@ class FoliumWindowGUI(tk.Toplevel):
         else:
             raise ValueError(f"Invalid basemap layer: {basemap_layer}")
 
-        top_layer_value = self.top_layer.get()
-
         min_lng, min_lat, max_lng, max_lat = float('inf'), float('inf'), float('-inf'), float('-inf')
 
         def style_function(feature):
             style = feature['properties'].get('style', {})
-            print(f"Feature: {feature}")
-            print(f"Style: {style}")
             return style
-
+        
         for i, geojson_data in enumerate(styled_geojson_list):
             layer_min_lng, layer_min_lat, layer_max_lng, layer_max_lat = calculate_bounding_box(geojson_data)
 
@@ -168,10 +267,34 @@ class FoliumWindowGUI(tk.Toplevel):
             max_lng = max(max_lng, layer_max_lng)
             max_lat = max(max_lat, layer_max_lat)
 
-            if i == top_layer_value:
-                folium.GeoJson(geojson_data, style_function=style_function, overlay=True, show=True).add_to(m)
-            else:
-                folium.GeoJson(geojson_data, style_function=style_function, overlay=True, show=False).add_to(m)
+            show_layer = (i == top_layer_number - 1)
+                
+            # Create a GeoJson layer for this data
+            geojson_layer = folium.GeoJson(geojson_data, style_function=style_function, overlay=True, show=show_layer)
+            
+            # Add popups to this layer
+            for feature in geojson_data["features"]:
+                if "popupProperties" in feature["properties"]:
+                    popup_properties = feature["properties"]["popupProperties"]
+                    
+                    popup_html = "<table>"
+                    for prop in popup_properties:
+                        if prop != "popupProperties":
+                            value = feature["properties"].get(prop, "")
+                            popup_html += f"<tr><td><b>{prop}:</b></td><td>{value}</td></tr>"
+                    popup_html += "</table>"
+                    
+                    # Create a new GeoJson object for this feature
+                    feature_layer = folium.GeoJson(feature)
+                    
+                    # Add the popup to this feature
+                    feature_layer.add_child(folium.Popup(popup_html))
+                    
+                    # Add this feature to the layer
+                    geojson_layer.add_child(feature_layer)
+            
+            # Add this layer to the map
+            geojson_layer.add_to(m)
 
         centroid_lng=(min_lng+max_lng)/2
         centroid_lat=(min_lat+max_lat)/2
@@ -181,11 +304,26 @@ class FoliumWindowGUI(tk.Toplevel):
         m.fit_bounds([[min_lat,min_lng],[max_lat,max_lng]])
 
         title = self.map_title.get()
-
-        title = self.logic.gui.map_title_entry.get()
         if title:
+            placement = self.title_placement_var.get()
+            height = int(self.title_height_entry.get())
+            border_size = int(self.title_border_size_entry.get())
+            border_color = self.title_border_color_var.get()
+            font_size = int(self.title_font_size_entry.get())
+            font_color = self.title_font_color_var.get()
+            bg_color = self.title_bg_color_var.get()
+            
+            if placement == "top-left":
+                position = f"top: 50px; left: 50px;"
+            elif placement == "top-right":
+                position = f"top: 50px; right: 50px;"
+            elif placement == "bottom-left":
+                position = f"bottom: 50px; left: 50px;"
+            elif placement == "bottom-right":
+                position = f"bottom: 50px; right: 50px;"
+            
             title_html = f"""
-            <div id="map-title" style="position: fixed; bottom: 50px; left: 50px; height: 40px; border:2px solid grey; z-index:9999; font-size:20px; background-color: white;">  {title}
+            <div id="map-title" style="position: fixed; {position} height: {height}px; border:{border_size}px solid {border_color}; z-index:9999; font-size:{font_size}px; color:{font_color}; background-color: {bg_color};">  {title}
             </div>
             <script>
                 // Get the map title element
@@ -194,7 +332,7 @@ class FoliumWindowGUI(tk.Toplevel):
                 // Measure the width of the title text
                 var canvas = document.createElement('canvas');
                 var context = canvas.getContext('2d');
-                context.font = '20px sans-serif';
+                context.font = '{font_size}px sans-serif';
                 var metrics = context.measureText(mapTitle.textContent);
 
                 // Set the width of the map title element
