@@ -83,12 +83,9 @@ def set_color_ramp(color_ramp_listbox, text_widget_c):
 def get_styled_geojson(geojson_data, selected_property, classification_method, bins, color_ramp):
     print(f"color_ramp: {color_ramp}")
     if not geojson_data.empty:
-        # Convert the GeoJSON data to a GeoDataFrame
         gdf = gpd.GeoDataFrame.from_features(geojson_data)
-    
-    # Classify the data into bins
+
     if selected_property:
-        # Choose a classification method
         if classification_method == 'quantiles':
             bin_edges = mquantiles(gdf[selected_property], prob=np.linspace(0, 1, bins + 1))
         elif classification_method == 'equal_interval':
@@ -100,48 +97,43 @@ def get_styled_geojson(geojson_data, selected_property, classification_method, b
             raise ValueError(f"Invalid classification method: {classification_method}")
 
         gdf['bin'] = pd.cut(gdf[selected_property], bins=bin_edges, labels=False, include_lowest=True)
-        
-        # Add an extra bin edge that is smaller than the minimum value of the data
+
         min_value = gdf[selected_property].min()
         bin_edges = [min_value - 1] + list(bin_edges)
-        
-        # Add an extra bin edge that is larger than the maximum value of the data
+
         max_value = gdf[selected_property].max()
         bin_edges = list(bin_edges) + [max_value + 1]
-        
-        # Assign each feature to a bin
+
         gdf['bin'] = pd.cut(gdf[selected_property], bins=bin_edges, labels=False, include_lowest=True)
-    
-    # Create a custom colormap from the selected color ramp
+
     if color_ramp:
         colors = [hsb_to_rgb(h, s, b) for h, s, b in color_ramp]
         cmap = ListedColormap(colors)
     else:
         cmap = None
-    
-    # Convert the GeoDataFrame to a GeoJSON string
+
     geojson_str = gdf.to_json()
-    
-    # Apply the colormap to the features in the GeoJSON string
+
     if cmap:
         geojson_data = json.loads(geojson_str)
         for feature in geojson_data['features']:
             try:
+                # Convert the RGBA color values to a CSS color string
+                rgba_color = cmap(feature['properties']['bin'])
+                css_color = f"rgba({int(rgba_color[0]*255)}, {int(rgba_color[1]*255)}, {int(rgba_color[2]*255)}, {rgba_color[3]})"
                 feature['properties']['style'] = {
-                    'fillColor': cmap(feature['properties']['bin']),
+                    'fillColor': css_color,
                     'color': 'black',
                     'weight': 1,
                     'fillOpacity': 0.7,
                 }
             except KeyError:
                 print("KeyError: 'bin' not found")
-                # Handle the error here
                 pass
         geojson_str = json.dumps(geojson_data)
-    
-        return geojson_str
-    else:
-        return None
+
+    return geojson_str
+
 
 def generate_styled_geojson(color_ramp, bins, classification_method, working_object_a, working_object_b):
     # Generate and display a styled GeoJSON object
