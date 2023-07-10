@@ -4,7 +4,6 @@ import tkinter as tk
 def calculate_bounding_box(geojson_data):
     # Initialize the bounding box values
     min_lng, min_lat, max_lng, max_lat = float('inf'), float('inf'), float('-inf'), float('-inf')
-
     # Iterate over the features in the GeoJSON data
     for feature in geojson_data['features']:
         coords = feature['geometry']['coordinates']
