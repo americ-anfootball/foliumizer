@@ -268,10 +268,13 @@ class FoliumWindowGUI(tk.Toplevel):
             max_lat = max(max_lat, layer_max_lat)
 
             show_layer = (i == top_layer_number - 1)
-                
+            
             # Create a GeoJson layer for this data
             geojson_layer = folium.GeoJson(geojson_data, style_function=style_function, overlay=True, show=show_layer)
             
+            def popup_style_function(feature):
+                return {'fillOpacity': 0, 'weight': 0}
+                
             # Add popups to this layer
             for feature in geojson_data["features"]:
                 if "popupProperties" in feature["properties"]:
@@ -285,11 +288,11 @@ class FoliumWindowGUI(tk.Toplevel):
                     popup_html += "</table>"
                     
                     # Create a new GeoJson object for this feature
-                    feature_layer = folium.GeoJson(feature)
-                    
+                    feature_layer = folium.GeoJson(feature, style_function=popup_style_function)
+
                     # Add the popup to this feature
                     feature_layer.add_child(folium.Popup(popup_html))
-                    
+
                     # Add this feature to the layer
                     geojson_layer.add_child(feature_layer)
             
