@@ -67,119 +67,146 @@ class FoliumWindowGUI(tk.Toplevel):
         self.layer_control_var = tk.BooleanVar(value=True)
         self.create_widgets()
         self.geojson_data_list = []
+        self.geojson_layers = []  # Create a new attribute to store references to the GeoJson layers
 
-    def create_widgets(self):
-        # Create a frame to hold the Listbox and Scrollbars
+    def create_widgets(self):        
+        # Create a title for the listbox widget:
+        self.layer_listbox_label = tk.Label(self, text="Available Layers")
+        self.layer_listbox_label.grid(row=0, column=0, columnspan=2, padx=5, pady=5)
+
+        # Create a top frame to hold the Listbox and Scrollbars
         self.listbox_frame = tk.Frame(self)
-        self.listbox_frame.pack()
+        self.listbox_frame.grid(row=1, column=0, columnspan=2, padx=5, pady=5)
 
         # Create the vertical scrollbar
         self.yscroll = tk.Scrollbar(self.listbox_frame, orient=tk.VERTICAL)
-        self.yscroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.yscroll.grid(row=0, column=1)
 
         # Create the horizontal scrollbar
         self.xscroll = tk.Scrollbar(self.listbox_frame, orient=tk.HORIZONTAL)
-        self.xscroll.pack(side=tk.BOTTOM, fill=tk.X)
+        self.xscroll.grid(row=1, column=0)
 
         # Create a Listbox widget to display the passed data
         self.folium_listbox = tk.Listbox(self.listbox_frame, selectmode=tk.SINGLE, exportselection=False, xscrollcommand=self.xscroll.set, yscrollcommand=self.yscroll.set)
-        self.folium_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.folium_listbox.grid(row=0, column=0)
 
         # Attach the scrollbars to the Listbox
         self.yscroll.config(command=self.folium_listbox.yview)
         self.xscroll.config(command=self.folium_listbox.xview)
-        
+
+        # Configure the top frame grid to resize properly
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        # Create a middle frame to hold the widgets
+        self.middle_frame = tk.Frame(self)
+        self.middle_frame.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
+
         # Create a label for the layer title entry
-        self.layer_title_label = tk.Label(self, text="Layer Title:")
-        self.layer_title_label.pack()
+        self.layer_title_label = tk.Label(self.middle_frame, text="Layer Title:")
+        self.layer_title_label.grid(row=0, column=0, padx=5, pady=5)
 
         # Create an Entry widget for the layer title
-        self.layer_title_entry = tk.Entry(self)
-        self.layer_title_entry.pack()
-        
-        # Create a label for the popup properties Listbox
-        self.popup_properties_label = tk.Label(self, text="Select One or More Popup Properties:")
-        self.popup_properties_label.pack()
-        
-        # Create a Listbox for selecting the popup properties
-        self.popup_properties_listbox = tk.Listbox(self, selectmode=tk.MULTIPLE)
-        self.popup_properties_listbox.pack()
-        
+        self.layer_title_entry = tk.Entry(self.middle_frame)
+        self.layer_title_entry.grid(row=0, column=1, padx=5, pady=5)
+
         # Create a button for updating the popup properties for the selected layer
-        self.update_popup_properties_button = tk.Button(self, text="Apply Selected Popup Properties for Selected Layer", command=self.update_popup_properties)
-        self.update_popup_properties_button.pack()
-        
+        self.update_popup_properties_button = tk.Button(self.middle_frame,text="Apply Name to Selected Layer",command=self.update_layer_name)
+        self.update_popup_properties_button.grid(row=1,column=1, padx=5,pady=5)
+
+        # Create a label and OptionMenu for the top layer selection
+        self.top_layer_label = tk.Label(self.middle_frame, text="Top Layer:")
+        self.top_layer_label.grid(row=2, column=0, padx=5, pady=5)
+        self.top_layer_menu = tk.OptionMenu(self.middle_frame,self.top_layer,"")
+        self.top_layer_menu.grid(row=2,column=1,padx=5,pady=5)
+
+        # Create a label for the popup properties Listbox
+        self.popup_properties_label = tk.Label(self.middle_frame, text="Select One or More Popup Properties:")
+        self.popup_properties_label.grid(row=3, column=0, padx=5, pady=5)
+
+        # Create a Listbox for selecting the popup properties
+        self.popup_properties_listbox = tk.Listbox(self.middle_frame, selectmode=tk.MULTIPLE)
+        self.popup_properties_listbox.grid(row=3, column=1, padx=5, pady=5)
+
+        # Create a button for updating the popup properties for the selected layer
+        self.update_popup_properties_button = tk.Button(self.middle_frame,text="Apply Selected Popup Properties for Selected Layer",command=self.update_popup_properties)
+        self.update_popup_properties_button.grid(row=4,columnspan=2,padx=5,pady=5)
+
+        # Configure the middle frame grid to resize properly
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        # Create a bottom frame to hold the widgets
+        self.bottom_frame = tk.Frame(self)
+        self.bottom_frame.grid(row=10, column=0, columnspan=2, padx=5, pady=5)
+
         # Create a label for the map title entry
-        self.map_title_label = tk.Label(self, text="Map Title:")
-        self.map_title_label.pack()
-        
+        self.map_title_label = tk.Label(self.bottom_frame, text="Map Title:")
+        self.map_title_label.grid(row=0, column=0, padx=5, pady=5)
+
         # Create an Entry widget for the map title
-        self.map_title_entry = tk.Entry(self, textvariable=self.map_title)
-        self.map_title_entry.pack()
-        
+        self.map_title_entry = tk.Entry(self.bottom_frame, textvariable=self.map_title)
+        self.map_title_entry.grid(row=0, column=1, padx=5, pady=5)
+
         # Create a label and OptionMenu for the map title placement
-        self.title_placement_label = tk.Label(self, text="Title Placement:")
-        self.title_placement_label.pack()
-        self.title_placement_var = tk.StringVar(value="bottom-left")
+        self.title_placement_label = tk.Label(self.bottom_frame, text="Title Placement:")
+        self.title_placement_label.grid(row=1, column=0, padx=5, pady=5)
+        self.title_placement_var = tk.StringVar(value="top-left")
         self.title_placement_options = ["top-left", "top-right", "bottom-left", "bottom-right"]
-        self.title_placement_menu = tk.OptionMenu(self, self.title_placement_var, *self.title_placement_options)
-        self.title_placement_menu.pack()
-        
-        # Create a label and Entry for the map title height
-        self.title_height_label = tk.Label(self, text="Title Height:")
-        self.title_height_label.pack()
-        self.title_height_entry = tk.Entry(self)
-        self.title_height_entry.insert(0, "40")
-        self.title_height_entry.pack()
-        
-        # Create a label and Entry for the map title border size
-        self.title_border_size_label = tk.Label(self, text="Title Border Size:")
-        self.title_border_size_label.pack()
-        self.title_border_size_entry = tk.Entry(self)
-        self.title_border_size_entry.insert(0, "2")
-        self.title_border_size_entry.pack()
-        
+        self.title_placement_menu = tk.OptionMenu(self.bottom_frame, self.title_placement_var, *self.title_placement_options)
+        self.title_placement_menu.grid(row=1, column=1, padx=5, pady=5)
+
         # Create a label and OptionMenu for the map title border color
-        self.title_border_color_label = tk.Label(self, text="Title Border Color:")
-        self.title_border_color_label.pack()
+        self.title_border_color_label = tk.Label(self.bottom_frame, text="Title Border Color:")
+        self.title_border_color_label.grid(row=2, column=0, padx=5, pady=5)
         self.title_border_color_var = tk.StringVar(value="grey")
         self.title_border_color_options = ["black", "grey", "white", "red", "green", "blue"]
-        self.title_border_color_menu = tk.OptionMenu(self, self.title_border_color_var, *self.title_border_color_options)
-        self.title_border_color_menu.pack()
-        
+        self.title_border_color_menu = tk.OptionMenu(self.bottom_frame, self.title_border_color_var, *self.title_border_color_options)
+        self.title_border_color_menu.grid(row=2, column=1, padx=5, pady=5)
+
         # Create a label and Entry for the map title font size
-        self.title_font_size_label = tk.Label(self, text="Title Font Size:")
-        self.title_font_size_label.pack()
-        self.title_font_size_entry = tk.Entry(self)
-        self.title_font_size_entry.insert(0, "20")
-        self.title_font_size_entry.pack()
-        
+        self.title_font_size_label = tk.Label(self.bottom_frame, text="Title Font Size:")
+        self.title_font_size_label.grid(row=3, column=0, padx=5, pady=5)
+
+        # Create a variable to hold the font size value
+        self.title_font_size_var = tk.IntVar(value=20)
+
+        # Create a Scale widget for the map title font size
+        self.title_font_size_scale = tk.Scale(self.bottom_frame, from_=8, to=72, orient=tk.HORIZONTAL, variable=self.title_font_size_var)
+        self.title_font_size_scale.grid(row=3, column=1, columnspan=2, padx=5, pady=5)
+
         # Create a label and OptionMenu for the map title font color
-        self.title_font_color_label = tk.Label(self, text="Title Font Color:")
-        self.title_font_color_label.pack()
+        self.title_font_color_label = tk.Label(self.bottom_frame, text="Title Font Color:")
+        self.title_font_color_label.grid(row=4, column=0, padx=5, pady=5)
         self.title_font_color_var = tk.StringVar(value="black")
         self.title_font_color_options = ["black", "grey", "white", "red", "green", "blue"]
-        self.title_font_color_menu = tk.OptionMenu(self, self.title_font_color_var, *self.title_font_color_options)
-        self.title_font_color_menu.pack()
-        
+        self.title_font_color_menu = tk.OptionMenu(self.bottom_frame,self.title_font_color_var,*self.title_font_color_options)
+        self.title_font_color_menu.grid(row=4,column=1,padx=5,pady=5)
+
         # Create a label and OptionMenu for the map title background color
-        self.title_bg_color_label = tk.Label(self, text="Title Background Color:")
-        self.title_bg_color_label.pack()
+        self.title_bg_color_label = tk.Label(self.bottom_frame, text="Title Background Color:")
+        self.title_bg_color_label.grid(row=5, column=0, padx=5, pady=5)
         self.title_bg_color_var = tk.StringVar(value="white")
         self.title_bg_color_options = ["black", "grey", "white", "red", "green", "blue"]
-        self.title_bg_color_menu = tk.OptionMenu(self, self.title_bg_color_var, *self.title_bg_color_options)
-        self.title_bg_color_menu.pack()
-        
-        # Create an OptionMenu widget for selecting the folium basemap layer
+        self.title_bg_color_menu = tk.OptionMenu(self.bottom_frame, self.title_bg_color_var, *self.title_bg_color_options)
+        self.title_bg_color_menu.grid(row=5, column=1, padx=5, pady=5)
+
+        # Create a label and OptionMenu widget for selecting the folium basemap layer
+        self.title_bg_color_label = tk.Label(self.bottom_frame, text="Select Basemap Layer:")
+        self.title_bg_color_label.grid(row=6, column=0, padx=5, pady=5)        
         self.basemap_options = ['stamen toner', 'stamen terrain', 'stamen watercolor', 'cartodb positron', 'cartodb dark matter', 'openstreetmap', 'none']
         self.basemap_var = tk.StringVar(self)
         self.basemap_var.set(self.basemap_options[0])
-        self.basemap_option_menu = tk.OptionMenu(self, self.basemap_var, *self.basemap_options)
-        self.basemap_option_menu.pack()
+        self.basemap_option_menu = tk.OptionMenu(self.bottom_frame, self.basemap_var, *self.basemap_options)
+        self.basemap_option_menu.grid(row=6, column=1, padx=5, pady=5)
+
+        # Configure the bottom frame grid to resize properly
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(5, weight=1)
 
         # Create a button to create the folium map from active layers
         self.create_map_button = tk.Button(self, text="Create Folium Map from Active Layers", command=self.create_map)
-        self.create_map_button.pack()
+        self.create_map_button.grid(row=12,columnspan=2, padx=5, pady=5)
 
     def add_layer(self, geojson_str):
         # Increment the layer count
@@ -195,22 +222,39 @@ class FoliumWindowGUI(tk.Toplevel):
         self.folium_listbox.insert(tk.END, alias)
 
         # Update or create the top layer menu and label
-        if hasattr(self, 'top_layer_menu'):
-            menu = self.top_layer_menu["menu"]
-            menu.add_command(label=alias, command=lambda value=alias: self.top_layer.set(value))
-            menu.invoke(0)  # Set the top layer to the first item in the menu
-            self.top_layer_menu.pack()
-            self.top_layer_label.pack()
-        else:
-            first_value = alias
-            self.top_layer_label = tk.Label(self, text="Top Layer:")
-            self.top_layer_label.pack()
-            self.top_layer_menu = tk.OptionMenu(self, self.top_layer, first_value)
-            self.top_layer_menu.pack()
+        menu = self.top_layer_menu["menu"]
+        menu.add_command(label=alias, command=lambda value=alias: self.top_layer.set(value))
+        if not menu.index("end"):
+            self.top_layer.set(alias)  # Set the top layer to the first item in the menu
 
         # Append the geojson_str data to the geojson_data_list variable
         geojson_data = json.loads(geojson_str)
         self.geojson_data_list.append(geojson_data)
+
+    def update_layer_name(self):
+        # Get the selected layer index from the folium_listbox
+        selected_index = self.folium_listbox.curselection()
+        if not selected_index:
+            return  # No layer is selected
+        selected_index = selected_index[0]
+
+        # Get the new layer name from the layer_title_entry widget
+        new_layer_name = self.layer_title_entry.get()
+        if not new_layer_name:
+            return  # No new layer name is entered
+
+        # Update the folium_listbox with the new layer name
+        self.folium_listbox.delete(selected_index)
+        self.folium_listbox.insert(selected_index, new_layer_name)
+
+        # Update the top_layer_menu with the new layer name
+        menu = self.top_layer_menu["menu"]
+        menu.entryconfig(selected_index, label=new_layer_name)
+
+        # Update the LayerControl widget of the output Folium map with the new layer name
+        if self.geojson_layers:
+            geojson_layer = self.geojson_layers[selected_index]
+            geojson_layer.layer_name = new_layer_name
 
     def update_popup_properties(self):
         # Get the index of the currently selected layer
@@ -258,7 +302,7 @@ class FoliumWindowGUI(tk.Toplevel):
         def style_function(feature):
             style = feature['properties'].get('style', {})
             return style
-        
+
         for i, geojson_data in enumerate(styled_geojson_list):
             layer_min_lng, layer_min_lat, layer_max_lng, layer_max_lat = calculate_bounding_box(geojson_data)
 
@@ -268,9 +312,12 @@ class FoliumWindowGUI(tk.Toplevel):
             max_lat = max(max_lat, layer_max_lat)
 
             show_layer = (i == top_layer_number - 1)
-            
+
             # Create a GeoJson layer for this data
             geojson_layer = folium.GeoJson(geojson_data, style_function=style_function, overlay=True, show=show_layer)
+
+            # Append a reference to the GeoJson layer to the geojson_layers list
+            self.geojson_layers.append(geojson_layer)
             
             def popup_style_function(feature):
                 return {'fillOpacity': 0, 'weight': 0}
