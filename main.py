@@ -157,15 +157,36 @@ class AppGUI:
         color_logic = ColorWindowLogic(working_object_a=self.logic.working_object_a, working_object_b=self.logic.working_object_b)
         color_window = ColorWindowGUI(master=self.root, app=self, logic=color_logic)
         self.color_window = color_window
+        if hasattr(self, 'folium_window'):
+            x = self.folium_window.winfo_x()
+            y = self.folium_window.winfo_y()
+            width = self.folium_window.winfo_width()
+            color_window.geometry(f"+{x + width + 10}+{y}")
+        else:
+            x = self.root.winfo_x()
+            y = self.root.winfo_y()
+            color_window.geometry(f"+{x + 50}+{y + 50}")
+        color_window.update_idletasks()
+        self.color_window_x = color_window.winfo_x()
+        self.color_window_y = color_window.winfo_y()
+        self.color_window_width = color_window.winfo_width()
+        self.color_window_height = color_window.winfo_height()
         color_window.mainloop()
-        
+
     def open_folium_window(self):
         folium_logic = FoliumWindowLogic(working_object_a=self.logic.working_object_a, working_object_b=self.logic.working_object_b)
-
         folium_window = FoliumWindowGUI(master=self.root, logic=folium_logic)
-
         self.folium_window = folium_window
-        
+        if hasattr(self, 'color_window'):
+            x = self.color_window.winfo_x()
+            y = self.color_window.winfo_y()
+            width = self.color_window.winfo_width()
+            folium_window.geometry(f"+{x + width + 10}+{y}")
+        else:
+            x = self.root.winfo_x()
+            y = self.root.winfo_y()
+            folium_window.geometry(f"+{x + 50}+{y + 50}")
+        folium_window.update_idletasks()
         if hasattr(self, 'color_window'):
             self.color_window.enable_pass_data_button()
 
