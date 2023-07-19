@@ -46,16 +46,16 @@ class ColorWindowGUI(tk.Toplevel):
         try:
             # create the hue label and slider
             self.hue_label = tk.Label(self, text='Hue 1:')
-            self.hue_label.pack()
+            self.hue_label.grid(row=0, columnspan=2)
             self.hue_slider = tk.Scale(self, from_=0, to=360, orient=tk.HORIZONTAL)
             self.hue_slider.set(0)
-            self.hue_slider.pack()
+            self.hue_slider.grid(row=1, columnspan=2)
 
             # create the hue entry field
             self.hue_entry_var = tk.StringVar(value='0')
             self.hue_entry_var.trace('w', lambda *args: self.update_scale_from_entry(self.hue_slider, self.hue_entry_var.get()))
             self.hue_entry = tk.Entry(self, textvariable=self.hue_entry_var)
-            self.hue_entry.pack()
+            self.hue_entry.grid(row=2, columnspan=2)
 
             # create the second hue label and slider
             self.hue2_label = tk.Label(self, text='Hue 2:')
@@ -67,22 +67,23 @@ class ColorWindowGUI(tk.Toplevel):
 
             # create the bins label and slider
             self.bins_label = tk.Label(self, text='Number of bins:')
-            self.bins_label.pack()
+            self.bins_label.grid(row=3,columnspan=2)
             self.bins_slider = tk.Scale(self, from_=2, to=20, orient=tk.HORIZONTAL)
             self.bins_slider.set(2)
-            self.bins_slider.pack()
+            self.bins_slider.grid(row=4,columnspan=2)
 
             # create the ramp type label and radio buttons
             self.ramp_type_label = tk.Label(self,text='Color ramp type:')
-            self.ramp_type_label.pack()
+            self.ramp_type_label.grid(row=5,columnspan=2)
             self.ramp_type_var = tk.StringVar(value='sequential')
             self.sequential_ramp_button = tk.Radiobutton(self,text='Sequential',variable=self.ramp_type_var,value='sequential', command=lambda: self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get()))
-            self.sequential_ramp_button.pack()
+            self.sequential_ramp_button.grid(row=6,columnspan=2)
+            
             self.diverging_ramp_button = tk.Radiobutton(self,text='Diverging',variable=self.ramp_type_var,value='diverging', command=lambda: self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get()))
-            self.diverging_ramp_button.pack()
+            self.diverging_ramp_button.grid(row=7,columnspan=2)
             self.reverse_color_ramp_var = tk.BooleanVar()
             self.reverse_color_ramp_checkbox = tk.Checkbutton(self, text="Reverse Color Ramp", variable=self.reverse_color_ramp_var)
-            self.reverse_color_ramp_checkbox.pack()
+            self.reverse_color_ramp_checkbox.grid(row=8,columnspan=2)
 
             self.reverse_color_ramp_var.trace("w", lambda *args: self.on_reverse_color_ramp_changed())
 
@@ -91,27 +92,27 @@ class ColorWindowGUI(tk.Toplevel):
 
             # create the canvas
             self.canvas = tk.Canvas(self, width=200, height=50)
-            self.canvas.pack()
+            self.canvas.grid(row=9,columnspan=2)
 
             # create the classification method label and option menu
             self.classification_method_label = tk.Label(self, text='Classification method:')
-            self.classification_method_label.pack()
+            self.classification_method_label.grid(row=10,column=0)
             self.classification_method_var = tk.StringVar(value='quantiles')
             self.classification_method_options = ['quantiles', 'equal_interval', 'standard_deviation']
             self.classification_method_menu = tk.OptionMenu(self, self.classification_method_var, *self.classification_method_options)
-            self.classification_method_menu.pack()
+            self.classification_method_menu.grid(row=10,column=1)
 
             color_ramp = None
 
             # create the generate and apply buttons
             self.generate_button = tk.Button(self, text='Generate Color Palette', command=self.on_generate_button_click)
-            self.generate_button.pack()
-            
+            self.generate_button.grid(row=11,columnspan=2)
+
             self.apply_button = tk.Button(self, text='Preview Color Palette', state=tk.DISABLED, command=self.on_apply_button_click)
-            self.apply_button.pack()
+            self.apply_button.grid(row=12,columnspan=2)
 
             self.pass_data_button = tk.Button(self, text='Add this Layer to Folium Map', state=tk.DISABLED, command=self.on_pass_data_button_click)
-            self.pass_data_button.pack()
+            self.pass_data_button.grid(row=13,columnspan=2)
         except Exception as e:
             print(f"An error occurred while creating widgets: {e}")
 
@@ -177,13 +178,13 @@ class ColorWindowGUI(tk.Toplevel):
 
     def update_hue2_slider_state(self, hue2_label, hue2_slider, hue2_entry, ramp_type_var):
         if self.ramp_type_var.get() == 'diverging':
-            self.hue2_label.pack()
-            self.hue2_slider.pack()
-            self.hue2_entry.pack()
+            self.hue2_label.grid(row=17, columnspan=2)
+            self.hue2_slider.grid(row=18, columnspan=2)
+            self.hue2_entry.grid(row=19, columnspan=2)
         else:
-            self.hue2_label.pack_forget()
-            self.hue2_slider.pack_forget()
-            self.hue2_entry.pack_forget()
+            self.hue2_label.grid_forget()
+            self.hue2_slider.grid_forget()
+            self.hue2_entry.grid_forget()
 
     @staticmethod
     def update_scale_from_entry(scale: Any, value: str) -> None:
