@@ -388,7 +388,7 @@ class FoliumWindowGUI(tk.Toplevel):
                 position = f"bottom: 25px; left: 50%; transform: translateX(-50%);"
 
             title_html = f"""
-            <div id="map-title" style="position: fixed; {position} border:{border_size}px solid {border_color}; z-index:9999; font-size:{font_size}px; color:{font_color}; background-color: {bg_color};">  {title}
+            <div id="map-title" style="position: fixed; {position} border:{border_size}px solid {border_color}; z-index:9999; font-size:{font_size}px; color:{font_color}; background-color: {bg_color}; text-align:center;">  {title}
             </div>
             <script>
                 // Get the map title element
@@ -406,6 +406,7 @@ class FoliumWindowGUI(tk.Toplevel):
             </script>
             """
             m.get_root().html.add_child(folium.Element(title_html))
+
 
         if self.layer_control_var.get():
             LayerControl().add_to(m)
