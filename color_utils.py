@@ -134,6 +134,30 @@ def get_styled_geojson(geojson_data, selected_property, classification_method, b
 
     return geojson_str
 
+def get_categorical_color_map(geojson_data, selected_property, color_map):
+    if not geojson_data.empty:
+        gdf = gpd.GeoDataFrame.from_features(geojson_data)
+
+    geojson_str = gdf.to_json()
+
+    if color_map:
+        geojson_data = json.loads(geojson_str)
+        for feature in geojson_data['features']:
+            try:
+                # Get the color from the color map
+                css_color = color_map[feature['properties'][selected_property]]
+                feature['properties']['style'] = {
+                    'fillColor': css_color,
+                    'color': 'black',
+                    'weight': 1,
+                    'fillOpacity': 0.7,
+                }
+            except KeyError:
+                print(f"KeyError: '{selected_property}' not found")
+                pass
+        geojson_str = json.dumps(geojson_data)
+
+    return geojson_str
 
 def generate_styled_geojson(color_ramp, bins, classification_method, working_object_a, working_object_b):
     # Generate and display a styled GeoJSON object
@@ -163,3 +187,15 @@ def generate_styled_geojson(color_ramp, bins, classification_method, working_obj
             
         print("GeoDataFrame plotted")
             
+            
+def generate_categorical_color_map(working_object_a, working_object_b, color_map):
+    # Generate and display a styled GeoJSON object
+    geojson_str = get_categorical_color_map(working_object_a, working_object_b, color_map)
+    if geojson_str:
+        # Convert the GeoJSON string to a GeoDataFrame
+        gdf = gpd.GeoDataFrame.from_features(json.loads(geojson_str))
+
+        # Plot the GeoDataFrame
+        print("Plotting GeoDataFrame")
+        gdf.plot()
+        print("GeoDataFrame plotted")
