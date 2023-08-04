@@ -3,9 +3,10 @@ import json
 import matplotlib.pyplot as plt
 import pandas as pd
 import tkinter as tk
-from color_utils import generate_color_ramp, hsb_to_rgb, generate_and_display_color_palette, set_color_ramp, get_styled_geojson, generate_styled_geojson, reverse_color_ramp
+from color_utils import generate_color_ramp, hsb_to_rgb, generate_and_display_color_palette, set_color_ramp, get_styled_geojson, generate_styled_geojson, reverse_color_ramp, get_categorical_color_map, generate_categorical_color_map
 from folium_window import FoliumWindowLogic, FoliumWindowGUI
 from matplotlib.colors import ListedColormap
+from tkinter import ttk
 from typing import Any, List, Tuple
 
 
@@ -32,6 +33,12 @@ class ColorWindowLogic:
 
     def generate_styled_geojson(self, color_ramp: List[Tuple[int, int, int]], bins: int, classification_method: str) -> str:
         return generate_styled_geojson(color_ramp, bins, classification_method)
+        
+    def get_categorical_color_map(self, geojson_data, selected_property, color_map):
+        return get_categorical_color_map(geojson_data, selected_property, color_map)
+        
+    def generate_categorical_color_map(self, working_object_a, working_object_b, color_map):
+        return generate_categorical_color_map(working_object_a, working_object_b, color_map)
 
 
 class ColorWindowGUI(tk.Toplevel):
@@ -116,6 +123,100 @@ class ColorWindowGUI(tk.Toplevel):
         except Exception as e:
             print(f"An error occurred while creating widgets: {e}")
 
+        # Create a BooleanVar to track the state of the check box
+        self.categorical_color_map_var = tk.BooleanVar()
+
+        # Create a check box for enabling/disabling the categorical color map
+        self.categorical_color_map_check_box = tk.Checkbutton(self, text="Categorical Color Map", variable=self.categorical_color_map_var)
+        self.categorical_color_map_check_box.grid(row=14, columnspan=2)
+
+        # Create a Treeview for displaying the unique values and their colors
+        self.unique_values_treeview = ttk.Treeview(self, columns=['color'], show='tree')
+        self.unique_values_treeview.grid(row=0, column=5, columnspan=2)
+
+        # Function to populate the Treeview with unique values
+        def populate_treeview():
+            # Clear the Treeview
+            self.unique_values_treeview.delete(*self.unique_values_treeview.get_children())
+
+            # Get the unique values of the working_object_b variable
+            unique_values = self.logic.working_object_a[self.logic.working_object_b].unique()
+
+            # Insert an item for each unique value
+            for value in unique_values:
+                self.unique_values_treeview.insert('', 'end', text=value)
+
+        # Call the populate_treeview function whenever the check box is toggled
+        self.categorical_color_map_var.trace('w', lambda *args: populate_treeview())
+
+        # Create a PhotoImage object for each color in your color map
+        color_images = {}
+        for color_name, color_value in color_map.items():
+            image = tk.PhotoImage(width=40, height=20)
+            image.put(color_value, to=(0, 0, 40, 20))
+            color_images[color_name] = image
+
+        # Insert an item for each color in your color map
+        for color_name, color_image in color_images.items():
+            self.unique_values_treeview.insert('', 'end', text=color_name, image=color_image)
+
+        # Create a dropdown menu for selecting the color
+        color_options = [
+            'black', 'silver', 'gray', 'white', 'maroon', 'red', 'purple', 
+            'green', 'lime', 'olive', 'yellow', 'navy', 'blue', 'teal', 
+            'aqua', 'aliceblue', 'aquamarine', 'azure', 'beige', 'bisque', 
+            'blanchedalmond', 'blueviolet', 'brown', 'burlywood', 'cadetblue',
+            'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 
+            'crimson', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 
+            'darkgreen', 'darkkhaki', 'darkmagenda', 'darkolivegreen', 
+            'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 
+            'darkslateblue', 'darkslategrey', 'darkturquoise', 'darkviolet', 
+            'deeppink', 'deepskyblue', 'dimgray', 'dodgerblue', 'firebrick', 
+            'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 
+            'gold', 'goldenrod', 'honeydew', 'hotpink', 'indianred', 'indigo', 
+            'khaki', 'lavender', 'lavenderblush', 'lemonchiffon', 'lighblue', 
+            'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 
+            'lightgreen', 'lightpink', 'lightsalmon', 'lightseagreen', 
+            'lightskyblue', 'lightslategray', 'lightsteelblue', 'lightyellow', 
+            'lime', 'limegreen', 'mediumaquamarine', 'mediumblue', 
+            'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 
+            'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 
+            'midnightblue', 'mintcream', 'mistyrose', 'mocassin', 'navajowhite', 
+            'navy', 'oldlace', 'olivedrab', 'orangered', 'orchid', 
+            'palegoldenrod', 'paleturquoise', 'palevioletred', 'papayawhip', 
+            'peachpuff', 'peru', 'plum', 'powderblue', 'rebeccapurple', 
+            'rosybrown', 'royalblue', 'saddlebrown', 'seagreen', 'seashell', 
+            'sienna', 'skyblue', 'slateblue', 'slategray', 'snow', 
+            'springgreen', 'tan', 'teal', 'thistle', 'tomato', 'violet', 
+            'wheat', 'whitesmoke', 'yellowgreen'
+        ]
+ 
+        self.color_var = tk.StringVar()
+        self.color_dropdown = tk.OptionMenu(self, self.color_var, *color_options)
+        self.color_dropdown.grid(row=2, column=5, columnspan=2)
+
+        # Create a button for applying the selected color to the selected value
+        self.apply_color_button = tk.Button(self, text="Apply Color")
+        self.apply_color_button.grid(row=3, column=5, columnspan=2)
+
+        # Function to update the visibility and state of the widgets
+        def update_widgets(*args):
+            if self.categorical_color_map_var.get():
+                self.unique_values_treeview.state(('!disabled',))
+                self.color_dropdown.config(state=tk.NORMAL)
+                self.apply_color_button.config(state=tk.NORMAL)
+            else:
+                self.unique_values_treeview.state(('disabled',))
+                self.color_dropdown.config(state=tk.DISABLED)
+                self.apply_color_button.config(state=tk.DISABLED)
+
+        # Call the update_widgets function whenever the check box is toggled
+        self.categorical_color_map_var.trace('w', update_widgets)
+
+        # Initialize the visibility and state of the widgets
+        update_widgets()
+
+
     def on_generate_button_click(self):
         self.logic.color_ramp = self.logic.generate_and_display_color_palette(self.canvas, self.apply_button, self.hue_slider.get(), self.hue2_slider.get(), self.bins_slider.get(), self.ramp_type_var.get(), self.reverse_color_ramp_var)
         self.apply_button.config(state=tk.NORMAL)
@@ -192,3 +293,35 @@ class ColorWindowGUI(tk.Toplevel):
             scale.set(int(value))
         except ValueError:
             pass
+            
+    def on_generate_categorical_color_map_button_click(self):
+        try:
+            # Get the selected property from the working_object_b variable
+            selected_property = self.logic.working_object_b
+
+            # Create an empty color map
+            color_map = {}
+
+            # Populate the color map with key-value pairs representing unique values and their corresponding colors
+            for item_id in self.unique_values_treeview.get_children():
+                item = self.unique_values_treeview.item(item_id)
+                value = item['text']
+                color = item['image']
+                color_map[value] = color
+
+            # Generate the styled GeoJSON data
+            geojson_str = self.logic.generate_categorical_color_map(self.logic.working_object_a, selected_property, color_map)           
+            if geojson_str:
+                # Convert the GeoJSON string to a GeoDataFrame
+                gdf = gpd.GeoDataFrame.from_features(json.loads(geojson_str))
+
+                # Plot the GeoDataFrame
+                gdf.plot()
+                
+                plt.show(block=False)
+                
+            self.apply_button_clicked = True
+            self.enable_pass_data_button()
+        except Exception as e:
+            print(f"An error occurred in on_generate_categorical_color_map_button_click: {e}")
+            
