@@ -6,6 +6,7 @@ import tkinter as tk
 from color_utils import generate_color_ramp, hsb_to_rgb, generate_and_display_color_palette, set_color_ramp, get_styled_geojson, generate_styled_geojson, reverse_color_ramp, get_categorical_color_map, generate_categorical_color_map
 from folium_window import FoliumWindowLogic, FoliumWindowGUI
 from matplotlib.colors import ListedColormap
+from tkinter.colorchooser import askcolor
 from tkinter import ttk
 from typing import Any, List, Tuple
 
@@ -46,177 +47,139 @@ class ColorWindowGUI(tk.Toplevel):
         super().__init__(master)
         self.app = app
         self.logic = logic
+        self.color_map = {}
         self.apply_button_clicked = False
         self.create_widgets()
 
     def create_widgets(self):
         try:
+            # create a frame for all widgets associated with choropleth mapping
+            self.choropleth_frame = tk.Frame(self)
+            
             # create the hue label and slider
-            self.hue_label = tk.Label(self, text='Hue 1:')
+            self.hue_label = tk.Label(self.choropleth_frame, text='Hue 1:')
             self.hue_label.grid(row=0, columnspan=2)
-            self.hue_slider = tk.Scale(self, from_=0, to=360, orient=tk.HORIZONTAL)
+            self.hue_slider = tk.Scale(self.choropleth_frame, from_=0, to=360, orient=tk.HORIZONTAL)
             self.hue_slider.set(0)
             self.hue_slider.grid(row=1, columnspan=2)
 
             # create the hue entry field
             self.hue_entry_var = tk.StringVar(value='0')
             self.hue_entry_var.trace('w', lambda *args: self.update_scale_from_entry(self.hue_slider, self.hue_entry_var.get()))
-            self.hue_entry = tk.Entry(self, textvariable=self.hue_entry_var)
+            self.hue_entry = tk.Entry(self.choropleth_frame, textvariable=self.hue_entry_var)
             self.hue_entry.grid(row=2, columnspan=2)
 
             # create the second hue label and slider
-            self.hue2_label = tk.Label(self, text='Hue 2:')
-            self.hue2_slider = tk.Scale(self, from_=0, to=360, orient=tk.HORIZONTAL)
+            self.hue2_label = tk.Label(self.choropleth_frame, text='Hue 2:')
+            self.hue2_slider = tk.Scale(self.choropleth_frame, from_=0, to=360, orient=tk.HORIZONTAL)
             self.hue2_slider.set(0)
             self.hue2_entry_var = tk.StringVar(value='0')
             self.hue2_entry_var.trace('w', lambda *args: update_scale_from_entry(self.hue2_slider, self.hue2_entry_var.get()))
-            self.hue2_entry = tk.Entry(self, textvariable=self.hue2_entry_var)
+            self.hue2_entry = tk.Entry(self.choropleth_frame, textvariable=self.hue2_entry_var)
 
             # create the bins label and slider
-            self.bins_label = tk.Label(self, text='Number of bins:')
+            self.bins_label = tk.Label(self.choropleth_frame, text='Number of bins:')
             self.bins_label.grid(row=3,columnspan=2)
-            self.bins_slider = tk.Scale(self, from_=2, to=20, orient=tk.HORIZONTAL)
+            self.bins_slider = tk.Scale(self.choropleth_frame, from_=2, to=20, orient=tk.HORIZONTAL)
             self.bins_slider.set(2)
             self.bins_slider.grid(row=4,columnspan=2)
 
             # create the ramp type label and radio buttons
-            self.ramp_type_label = tk.Label(self,text='Color ramp type:')
+            self.ramp_type_label = tk.Label(self.choropleth_frame,text='Color ramp type:')
             self.ramp_type_label.grid(row=5,columnspan=2)
             self.ramp_type_var = tk.StringVar(value='sequential')
-            self.sequential_ramp_button = tk.Radiobutton(self,text='Sequential',variable=self.ramp_type_var,value='sequential', command=lambda: self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get()))
+            self.sequential_ramp_button = tk.Radiobutton(self.choropleth_frame,text='Sequential',variable=self.ramp_type_var,value='sequential', command=lambda: self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get()))
             self.sequential_ramp_button.grid(row=6,columnspan=2)
-            
-            self.diverging_ramp_button = tk.Radiobutton(self,text='Diverging',variable=self.ramp_type_var,value='diverging', command=lambda: self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get()))
+
+            self.diverging_ramp_button = tk.Radiobutton(self.choropleth_frame,text='Diverging',variable=self.ramp_type_var,value='diverging', command=lambda: self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get()))
             self.diverging_ramp_button.grid(row=7,columnspan=2)
             self.reverse_color_ramp_var = tk.BooleanVar()
-            self.reverse_color_ramp_checkbox = tk.Checkbutton(self, text="Reverse Color Ramp", variable=self.reverse_color_ramp_var)
+            self.reverse_color_ramp_checkbox = tk.Checkbutton(self.choropleth_frame, text="Reverse Color Ramp", variable=self.reverse_color_ramp_var)
             self.reverse_color_ramp_checkbox.grid(row=8,columnspan=2)
 
-            self.reverse_color_ramp_var.trace("w", lambda *args: self.on_reverse_color_ramp_changed())
+            self.reverse_color_ramp_var.trace("w", lambda *args: self.choropleth_frame.on_reverse_color_ramp_changed())
 
             # update the state of the second hue slider
             self.update_hue2_slider_state(self.hue2_label, self.hue2_slider, self.hue2_entry, self.ramp_type_var.get())
 
             # create the canvas
-            self.canvas = tk.Canvas(self, width=200, height=50)
+            self.canvas = tk.Canvas(self.choropleth_frame, width=200, height=50)
             self.canvas.grid(row=9,columnspan=2)
 
             # create the classification method label and option menu
-            self.classification_method_label = tk.Label(self, text='Classification method:')
+            self.classification_method_label = tk.Label(self.choropleth_frame, text='Classification method:')
             self.classification_method_label.grid(row=10,column=0)
             self.classification_method_var = tk.StringVar(value='quantiles')
             self.classification_method_options = ['quantiles', 'equal_interval', 'standard_deviation']
-            self.classification_method_menu = tk.OptionMenu(self, self.classification_method_var, *self.classification_method_options)
+            self.classification_method_menu = tk.OptionMenu(self.choropleth_frame, self.classification_method_var, *self.classification_method_options)
             self.classification_method_menu.grid(row=10,column=1)
 
             color_ramp = None
 
             # create the generate and apply buttons
-            self.generate_button = tk.Button(self, text='Generate Color Palette', command=self.on_generate_button_click)
+            self.generate_button = tk.Button(self.choropleth_frame, text='Generate Color Palette', command=self.on_generate_button_click)
             self.generate_button.grid(row=11,columnspan=2)
 
-            self.apply_button = tk.Button(self, text='Preview Color Palette', state=tk.DISABLED, command=self.on_apply_button_click)
+            self.apply_button = tk.Button(self.choropleth_frame, text='Preview Color Palette', state=tk.DISABLED, command=self.on_apply_button_click)
             self.apply_button.grid(row=12,columnspan=2)
 
-            self.pass_data_button = tk.Button(self, text='Add this Layer to Folium Map', state=tk.DISABLED, command=self.on_pass_data_button_click)
+            self.pass_data_button = tk.Button(self.choropleth_frame, text='Add this Layer to Folium Map', state=tk.DISABLED, command=self.on_pass_data_button_click)
             self.pass_data_button.grid(row=13,columnspan=2)
+            
+            # Pack the choropleth frame into the parent widget
+            self.choropleth_frame.pack()
+
+            # create a frame for all widgets associated with categorical mapping
+            self.categorical_frame = tk.Frame(self)
+
+            # Create a listbox to display the unique values
+            self.unique_values_listbox = tk.Listbox(self.categorical_frame)
+            self.unique_values_listbox.grid(row=0, column=1, columnspan=2)
+
+            def populate_listbox():
+                # Clear the listbox
+                self.unique_values_listbox.delete(0, tk.END)
+
+                # Get the unique values of the selected property field
+                unique_values = self.logic.working_object_a[self.logic.working_object_b].unique()
+                unique_values.sort()
+
+                # Add the unique values to the listbox
+                for value in unique_values:
+                    self.unique_values_listbox.insert(tk.END, value)
+
+            # Create a button to open the color picker
+            self.color_picker_button = tk.Button(self.categorical_frame, text="Choose Color", command=self.on_color_picker_button_click)
+            self.color_picker_button.grid(row=2, column=1, columnspan=2)
+
+            # Create a canvas to display the selected color
+            self.color_canvas = tk.Canvas(self.categorical_frame, width=40, height=20)
+            self.color_canvas.grid(row=3, column=1, columnspan=2)
+        
+            # Create a button to apply the selected color
+            self.apply_color_button = tk.Button(self.categorical_frame, text="Apply Color", command=self.on_apply_color_button_click)
+            self.apply_color_button.grid(row=4, column=1, columnspan=2)
+            
+            # Create a button to generate the categorical color map
+            self.generate_categorical_color_map_button = tk.Button(self.categorical_frame, text="Generate Categorical Color Map", command=self.on_generate_categorical_color_map_button_click)
+            self.generate_categorical_color_map_button.grid(row=5, column=1, columnspan=2)
+            
+            # Create a button to pass the generated map to the Folium Window
+            self.pass_categorical_map_button = tk.Button(self.categorical_frame, text="Add Result To Folium Window", command=self.on_pass_categorical_map_button_click)
+            self.pass_categorical_map_button.grid(row=6, column=1, columnspan=2)
+            
+            # Populate the listbox
+            populate_listbox()
+            
+            # Pack the categorical frame into the parent widget
+            self.categorical_frame.pack()
+
+            self.choropleth_frame.pack_forget()
+            self.categorical_frame.pack_forget()
+            
         except Exception as e:
             print(f"An error occurred while creating widgets: {e}")
-
-        # Create a BooleanVar to track the state of the check box
-        self.categorical_color_map_var = tk.BooleanVar()
-
-        # Create a check box for enabling/disabling the categorical color map
-        self.categorical_color_map_check_box = tk.Checkbutton(self, text="Categorical Color Map", variable=self.categorical_color_map_var)
-        self.categorical_color_map_check_box.grid(row=14, columnspan=2)
-
-        # Create a Treeview for displaying the unique values and their colors
-        self.unique_values_treeview = ttk.Treeview(self, columns=['color'], show='tree')
-        self.unique_values_treeview.grid(row=0, column=5, columnspan=2)
-
-        # Function to populate the Treeview with unique values
-        def populate_treeview():
-            # Clear the Treeview
-            self.unique_values_treeview.delete(*self.unique_values_treeview.get_children())
-
-            # Get the unique values of the working_object_b variable
-            unique_values = self.logic.working_object_a[self.logic.working_object_b].unique()
-
-            # Insert an item for each unique value
-            for value in unique_values:
-                self.unique_values_treeview.insert('', 'end', text=value)
-
-        # Call the populate_treeview function whenever the check box is toggled
-        self.categorical_color_map_var.trace('w', lambda *args: populate_treeview())
-
-        # Create a PhotoImage object for each color in your color map
-        color_images = {}
-        for color_name, color_value in color_map.items():
-            image = tk.PhotoImage(width=40, height=20)
-            image.put(color_value, to=(0, 0, 40, 20))
-            color_images[color_name] = image
-
-        # Insert an item for each color in your color map
-        for color_name, color_image in color_images.items():
-            self.unique_values_treeview.insert('', 'end', text=color_name, image=color_image)
-
-        # Create a dropdown menu for selecting the color
-        color_options = [
-            'black', 'silver', 'gray', 'white', 'maroon', 'red', 'purple', 
-            'green', 'lime', 'olive', 'yellow', 'navy', 'blue', 'teal', 
-            'aqua', 'aliceblue', 'aquamarine', 'azure', 'beige', 'bisque', 
-            'blanchedalmond', 'blueviolet', 'brown', 'burlywood', 'cadetblue',
-            'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 
-            'crimson', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 
-            'darkgreen', 'darkkhaki', 'darkmagenda', 'darkolivegreen', 
-            'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 
-            'darkslateblue', 'darkslategrey', 'darkturquoise', 'darkviolet', 
-            'deeppink', 'deepskyblue', 'dimgray', 'dodgerblue', 'firebrick', 
-            'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 
-            'gold', 'goldenrod', 'honeydew', 'hotpink', 'indianred', 'indigo', 
-            'khaki', 'lavender', 'lavenderblush', 'lemonchiffon', 'lighblue', 
-            'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 
-            'lightgreen', 'lightpink', 'lightsalmon', 'lightseagreen', 
-            'lightskyblue', 'lightslategray', 'lightsteelblue', 'lightyellow', 
-            'lime', 'limegreen', 'mediumaquamarine', 'mediumblue', 
-            'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 
-            'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 
-            'midnightblue', 'mintcream', 'mistyrose', 'mocassin', 'navajowhite', 
-            'navy', 'oldlace', 'olivedrab', 'orangered', 'orchid', 
-            'palegoldenrod', 'paleturquoise', 'palevioletred', 'papayawhip', 
-            'peachpuff', 'peru', 'plum', 'powderblue', 'rebeccapurple', 
-            'rosybrown', 'royalblue', 'saddlebrown', 'seagreen', 'seashell', 
-            'sienna', 'skyblue', 'slateblue', 'slategray', 'snow', 
-            'springgreen', 'tan', 'teal', 'thistle', 'tomato', 'violet', 
-            'wheat', 'whitesmoke', 'yellowgreen'
-        ]
- 
-        self.color_var = tk.StringVar()
-        self.color_dropdown = tk.OptionMenu(self, self.color_var, *color_options)
-        self.color_dropdown.grid(row=2, column=5, columnspan=2)
-
-        # Create a button for applying the selected color to the selected value
-        self.apply_color_button = tk.Button(self, text="Apply Color")
-        self.apply_color_button.grid(row=3, column=5, columnspan=2)
-
-        # Function to update the visibility and state of the widgets
-        def update_widgets(*args):
-            if self.categorical_color_map_var.get():
-                self.unique_values_treeview.state(('!disabled',))
-                self.color_dropdown.config(state=tk.NORMAL)
-                self.apply_color_button.config(state=tk.NORMAL)
-            else:
-                self.unique_values_treeview.state(('disabled',))
-                self.color_dropdown.config(state=tk.DISABLED)
-                self.apply_color_button.config(state=tk.DISABLED)
-
-        # Call the update_widgets function whenever the check box is toggled
-        self.categorical_color_map_var.trace('w', update_widgets)
-
-        # Initialize the visibility and state of the widgets
-        update_widgets()
-
-
+            
     def on_generate_button_click(self):
         self.logic.color_ramp = self.logic.generate_and_display_color_palette(self.canvas, self.apply_button, self.hue_slider.get(), self.hue2_slider.get(), self.bins_slider.get(), self.ramp_type_var.get(), self.reverse_color_ramp_var)
         self.apply_button.config(state=tk.NORMAL)
@@ -230,6 +193,14 @@ class ColorWindowGUI(tk.Toplevel):
             print(f"color_ramp after: {self.logic.color_ramp}")
             self.on_generate_button_click()
             print(f"color_ramp: {self.logic.color_ramp}")
+
+    def on_color_picker_button_click(self):
+        # Open the color picker dialog
+        color_code = tk.colorchooser.askcolor()[1]
+
+        # Update the canvas with the selected color
+        self.color_canvas.delete("all")
+        self.color_canvas.create_rectangle(0, 0, 40, 20, fill=color_code)
 
     def on_apply_button_click(self):
         try:
@@ -294,34 +265,50 @@ class ColorWindowGUI(tk.Toplevel):
         except ValueError:
             pass
             
+    def on_apply_color_button_click(self):
+        selected_value = self.unique_values_listbox.get(tk.ANCHOR)
+        print(f"Selected value: {selected_value}")
+
+        selected_color = self.color_canvas.itemcget(self.color_canvas.find_all()[0], "fill")
+        print(f"Selected color: {selected_color}")
+
+        self.color_map[selected_value] = selected_color
+        print(f"Updated color_map: {self.color_map}")
+            
     def on_generate_categorical_color_map_button_click(self):
         try:
             # Get the selected property from the working_object_b variable
             selected_property = self.logic.working_object_b
 
-            # Create an empty color map
-            color_map = {}
-
-            # Populate the color map with key-value pairs representing unique values and their corresponding colors
-            for item_id in self.unique_values_treeview.get_children():
-                item = self.unique_values_treeview.item(item_id)
-                value = item['text']
-                color = item['image']
-                color_map[value] = color
+            # Get the color map from the color_map attribute
+            color_map = self.color_map
 
             # Generate the styled GeoJSON data
-            geojson_str = self.logic.generate_categorical_color_map(self.logic.working_object_a, selected_property, color_map)           
+            geojson_str = self.logic.generate_categorical_color_map(self.logic.working_object_a, selected_property, color_map)
             if geojson_str:
                 # Convert the GeoJSON string to a GeoDataFrame
                 gdf = gpd.GeoDataFrame.from_features(json.loads(geojson_str))
 
                 # Plot the GeoDataFrame
                 gdf.plot()
-                
+
                 plt.show(block=False)
-                
+
             self.apply_button_clicked = True
             self.enable_pass_data_button()
         except Exception as e:
             print(f"An error occurred in on_generate_categorical_color_map_button_click: {e}")
-            
+
+    def on_pass_categorical_map_button_click(self):
+        # Generate the styled GeoJSON data
+        geojson_str = self.logic.get_categorical_color_map(self.logic.working_object_a, self.logic.working_object_b, self.color_map)
+        if geojson_str:
+            # Pass the data to the FoliumWindow instance
+            if hasattr(self.app, 'folium_window'):
+                if self.app.folium_window:
+                    # Add a new layer to the folium window
+                    self.app.folium_window.add_layer(geojson_str)
+
+        # Enable the folium button in the main window
+        if hasattr(self.app, 'folium_button'):
+            self.app.folium_button.config(state=tk.NORMAL)
