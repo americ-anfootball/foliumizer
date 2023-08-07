@@ -1,3 +1,4 @@
+import numpy as np
 import tkinter as tk
 from file_utils import add_files, on_select, set_working_object_a, set_working_object_b, file_path_mapping
 from color_window import ColorWindowLogic, ColorWindowGUI
@@ -157,6 +158,21 @@ class AppGUI:
         color_logic = ColorWindowLogic(working_object_a=self.logic.working_object_a, working_object_b=self.logic.working_object_b)
         color_window = ColorWindowGUI(master=self.root, app=self, logic=color_logic)
         self.color_window = color_window
+
+        # Check the data type of the selected property field
+        selected_property = self.logic.working_object_b
+        selected_property_type = self.logic.working_object_a[selected_property].dtype.type
+        print(f"Selected property type: {selected_property_type}")
+
+        if selected_property_type in [int, float, np.int64, np.float64]:
+            # Show choropleth frame and hide categorical frame
+            color_window.choropleth_frame.pack()
+            color_window.categorical_frame.pack_forget()
+        elif selected_property_type in [str, bool, np.object_]:
+            # Show categorical frame and hide choropleth frame
+            color_window.categorical_frame.pack()
+            color_window.choropleth_frame.pack_forget()
+                
         if hasattr(self, 'folium_window'):
             x = self.folium_window.winfo_x()
             y = self.folium_window.winfo_y()
