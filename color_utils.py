@@ -146,15 +146,17 @@ def get_categorical_color_map(geojson_data, selected_property, color_map):
             try:
                 # Get the color from the color map
                 css_color = color_map[feature['properties'][selected_property]]
-                feature['properties']['style'] = {
-                    'fillColor': css_color,
-                    'color': 'black',
-                    'weight': 1,
-                    'fillOpacity': 0.7,
-                }
             except KeyError:
-                print(f"KeyError: '{selected_property}' not found")
-                pass
+                # Assign a default color if the selected property is not found
+                css_color = 'gray'
+
+            feature['properties']['style'] = {
+                'fillColor': css_color,
+                'color': 'black',
+                'weight': 1,
+                'fillOpacity': 0.7,
+            }
+
         geojson_str = json.dumps(geojson_data)
 
     return geojson_str
@@ -177,9 +179,9 @@ def generate_styled_geojson(color_ramp, bins, classification_method, working_obj
         print("Plotting GeoDataFrame")
         if cmap:
             gdf.plot(column='bin', cmap=cmap)
-            
+            print("Opening Preview Window")
             plt.show()
-            
+            print("Preview Window Opened")
         else:
             gdf.plot()
             
@@ -189,13 +191,21 @@ def generate_styled_geojson(color_ramp, bins, classification_method, working_obj
             
             
 def generate_categorical_color_map(working_object_a, working_object_b, color_map):
+    print(f"Received color_map: {color_map}")
     # Generate and display a styled GeoJSON object
     geojson_str = get_categorical_color_map(working_object_a, working_object_b, color_map)
     if geojson_str:
         # Convert the GeoJSON string to a GeoDataFrame
         gdf = gpd.GeoDataFrame.from_features(json.loads(geojson_str))
 
-        # Plot the GeoDataFrame
-        print("Plotting GeoDataFrame")
-        gdf.plot()
-        print("GeoDataFrame plotted")
+        # Create a custom colormap
+        colorslist = list(color_map.values())
+        print(colorslist)
+        categoricalcmap = ListedColormap(colorslist)
+        print(categoricalcmap)
+
+        # Plot the GeoDataFrame using the custom colormap
+        gdf.plot(column=working_object_b, cmap=categoricalcmap)
+
+        plt.show()
+        
