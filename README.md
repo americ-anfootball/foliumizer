@@ -1,2 +1,2 @@
 # foliumizer
-babby's first GUI project, a small code to create a replicable folium web map utility
+A (Tkinter) GUI-based program to create folium maps with one or more choropleth and/or categorical layers from a wide range of vector data input types. Currently still under development
