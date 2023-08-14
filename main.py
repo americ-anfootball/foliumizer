@@ -80,8 +80,8 @@ class AppGUI:
         self.generate_color_button = tk.Button(self.root, text="Generate Color Palette", command=self.open_color_window)
         self.folium_button = tk.Button(self.root, text="Open Folium Window", command=self.open_folium_window)
         self.delete_button = tk.Button(self.root, text="Delete File", command=self.delete_file_command)
-        self.reset_a_button = tk.Button(self.root, text="Reset Working Object A", command=self.reset_working_object_a_command)
-        self.reset_b_button = tk.Button(self.root, text="Reset Working Object B", command=self.reset_working_object_b_command)
+        self.reset_a_button = tk.Button(self.root, text="Reset Spatial Data of Working Object", command=self.reset_working_object_a_command)
+        self.reset_b_button = tk.Button(self.root, text="Reset Active Property of Working Object", command=self.reset_working_object_b_command)
 
 		# create the text widgets
         self.text_widget_a = tk.Text(self.root, height=5, width=40)
