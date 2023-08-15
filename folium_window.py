@@ -2,12 +2,16 @@ import branca
 import folium
 import geopandas as gpd
 import json
+import math
+import pandas as pd
+import pydeck as pdk
 import tkinter as tk
 import webbrowser
 from branca.element import MacroElement
 from color_utils import get_styled_geojson
 from folium import LayerControl
 from folium_utils import calculate_bounding_box
+from haversine import haversine
 from jinja2 import Template 
 from tkinter import filedialog
 from typing import Any, List, Tuple
@@ -70,27 +74,29 @@ class FoliumWindowGUI(tk.Toplevel):
         self.geojson_layers = []  # Create a new attribute to store references to the GeoJson layers
         self.feature_groups = []
         self.m = folium.Map()
+        self.selected_property = None
+        
 
-    def create_widgets(self):        
-        # Create a title for the listbox widget:
-        self.layer_listbox_label = tk.Label(self, text="Available Layers")
-        self.layer_listbox_label.grid(row=0, column=0, columnspan=2, padx=5, pady=5)
-
+    def create_widgets(self):
         # Create a top frame to hold the Listbox and Scrollbars
         self.listbox_frame = tk.Frame(self)
         self.listbox_frame.grid(row=1, column=0, columnspan=2, padx=5, pady=5)
 
+        # Create a title for the listbox widget:
+        self.layer_listbox_label = tk.Label(self.listbox_frame, text="Available Layers")
+        self.layer_listbox_label.grid(row=0, column=0, columnspan=2, padx=5, pady=5)
+
         # Create the vertical scrollbar
         self.yscroll = tk.Scrollbar(self.listbox_frame, orient=tk.VERTICAL)
-        self.yscroll.grid(row=0, column=1)
+        self.yscroll.grid(row=1, column=1)
 
         # Create the horizontal scrollbar
         self.xscroll = tk.Scrollbar(self.listbox_frame, orient=tk.HORIZONTAL)
-        self.xscroll.grid(row=1, column=0)
+        self.xscroll.grid(row=2, column=0)
 
         # Create a Listbox widget to display the passed data
         self.folium_listbox = tk.Listbox(self.listbox_frame, selectmode=tk.SINGLE, exportselection=False, xscrollcommand=self.xscroll.set, yscrollcommand=self.yscroll.set)
-        self.folium_listbox.grid(row=0, column=0)
+        self.folium_listbox.grid(row=1, column=0)
 
         # Attach the scrollbars to the Listbox
         self.yscroll.config(command=self.folium_listbox.yview)
@@ -112,7 +118,7 @@ class FoliumWindowGUI(tk.Toplevel):
         self.layer_title_entry = tk.Entry(self.middle_frame)
         self.layer_title_entry.grid(row=0, column=1, padx=5, pady=5)
 
-        # Create a button for updating the popup properties for the selected layer
+        # Create a button for updating the name for the selected layer
         self.update_layer_name_button = tk.Button(self.middle_frame,text="Apply Name to Selected Layer",command=self.update_layer_name)
         self.update_layer_name_button.grid(row=1,column=1, padx=5,pady=5)
 
@@ -207,13 +213,37 @@ class FoliumWindowGUI(tk.Toplevel):
         self.basemap_option_menu = tk.OptionMenu(self.bottom_frame, self.basemap_var, *self.basemap_options)
         self.basemap_option_menu.grid(row=7, column=1, padx=5, pady=5)
 
+        # Create a button to create the folium map from active layers
+        self.create_map_button = tk.Button(self.bottom_frame, text="Create Folium Map from Active Layers", command=self.create_map)
+        self.create_map_button.grid(row=8,columnspan=2, padx=5, pady=5)
+
         # Configure the bottom frame grid to resize properly
         self.columnconfigure(0, weight=1)
         self.rowconfigure(5, weight=1)
 
-        # Create a button to create the folium map from active layers
-        self.create_map_button = tk.Button(self, text="Create Folium Map from Active Layers", command=self.create_map)
-        self.create_map_button.grid(row=12,columnspan=2, padx=5, pady=5)
+        # Create a PyDeck frame to hold the widgets
+        self.pydeck_frame = tk.Frame(self)
+        self.pydeck_frame.grid(row=1, column=5, columnspan=2, padx=5, pady=5)
+
+        # Create a label for the popup properties Listbox
+        self.z_properties_label = tk.Label(self.pydeck_frame, text="Select Property to use as 3D Height Variable:")
+        self.z_properties_label.grid(row=1, column=5, padx=5, pady=5)
+
+        # Create a Listbox for selecting the popup properties
+        self.z_properties_listbox = tk.Listbox(self.pydeck_frame, selectmode=tk.SINGLE)
+        self.z_properties_listbox.grid(row=2, column=5, padx=5, pady=5)
+
+        # Create a button for updating the popup properties for the selected layer
+        self.z_set_button = tk.Button(self.pydeck_frame,text="Set This Property as 3D Height Variable",command=self.update_elevation_property)
+        self.z_set_button.grid(row=4,column=5, columnspan=2,padx=5,pady=5)
+        
+        # Create a button to create the PyDeck map from active layers
+        self.create_z_map_button = tk.Button(self.pydeck_frame, text="Create 3D Map", command=self.create_z_map)
+        self.create_z_map_button.grid(row=6,column=5, columnspan=2, padx=5, pady=5)
+
+        # Configure the PyDeck frame grid to resize properly
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
 
     def add_layer(self, geojson_str):
         self.layer_count += 1
@@ -267,6 +297,66 @@ class FoliumWindowGUI(tk.Toplevel):
         self.popup_properties_listbox.delete(0, tk.END)
         for prop in sorted(available_properties):
             self.popup_properties_listbox.insert(tk.END, prop)
+        
+    def add_z_layer(self, geojson_str):
+        # Load the GeoJSON data
+        geojson_data = json.loads(geojson_str)
+        
+        # Get the list of available properties from the GeoJSON data
+        available_properties = set()
+        for feature in geojson_data["features"]:
+            available_properties.update(feature["properties"].keys())
+        
+        # Update the z_properties_listbox with the available properties
+        self.z_properties_listbox.delete(0, tk.END)
+        for prop in sorted(available_properties):
+            self.z_properties_listbox.insert(tk.END, prop)
+    
+    def update_z_properties_listbox(self):
+        # Clear the current contents of the z_properties_listbox
+        self.z_properties_listbox.delete(0, tk.END)
+        
+        # Get the list of available properties from the GeoJSON data
+        available_z_properties = set()
+        for geojson_data in self.geojson_data_list:
+            for feature in geojson_data["features"]:
+                available_properties.update(feature["properties"].keys())
+        
+        # Add the available properties to the z_properties_listbox
+        for prop in sorted(available_properties):
+            self.z_properties_listbox.insert(tk.END, prop)
+    
+    def update_elevation_property(self):
+        # Check if an item is selected in the z_properties_listbox
+        if not self.z_properties_listbox.curselection():
+            # No item is selected, so display an error message and return
+            tk.messagebox.showerror("Error", "Please select a property from the list")
+            return
+        
+        # Get the index of the currently selected layer
+        selected_layer_index = self.folium_listbox.curselection()[0]
+        
+        # Get the selected property from the z_properties_listbox
+        selected_property = self.z_properties_listbox.get(tk.ANCHOR)
+        
+        # Update the elevation property for each feature in the selected layer
+        geojson_data = self.geojson_data_list[selected_layer_index]
+        for feature in geojson_data["features"]:
+            if "properties" not in feature:
+                feature["properties"] = {}
+            feature["properties"]["elevation"] = feature["properties"].get(selected_property, 0)
+        
+        # Get the list of available properties for the selected layer
+        available_z_properties = set()
+        for feature in geojson_data["features"]:
+            available_z_properties.update(feature["properties"].keys())
+        
+        # Update the Listbox with the available properties
+        self.z_properties_listbox.delete(0, tk.END)
+        for prop in sorted(available_z_properties):
+            self.z_properties_listbox.insert(tk.END, prop)
+        
+        self.selected_property = selected_property
         
     def create_map(self):
         styled_geojson_list = self.geojson_data_list
@@ -404,3 +494,110 @@ class FoliumWindowGUI(tk.Toplevel):
         webbrowser.open(file_name)
         
         return m
+
+    def create_z_map(self): 
+        # Access the styled geojson data
+        styled_geojson_list = self.geojson_data_list
+    
+        # Load the GeoJSON data
+        geojson_data = json.loads(geojson_str)
+        
+        # geojson_data is the GeoJSON data you want to display on the map
+        min_lng, min_lat, max_lng, max_lat = calculate_bounding_box(geojson_data)
+        
+        # Calculate the center point of the bounding box
+        center_lng = (min_lng + max_lng) / 2
+        center_lat = (min_lat + max_lat) / 2
+        
+        # Calculate the width and height of the bounding box in meters
+        width = haversine((center_lat, min_lng), (center_lat, max_lng)) * 1000
+        height = haversine((min_lat, center_lng), (max_lat, center_lng)) * 1000
+        
+        # Determine an appropriate zoom level based on the size of the bounding box
+        zoom = max(0, round(math.log2(591657550.5 / max(width, height)) - 8))
+        
+        # Create a new view state object using the center point and zoom level of the bounding box
+        view_state = pdk.ViewState(
+            latitude=center_lat, 
+            longitude=center_lng, 
+            zoom=zoom, 
+            pitch=45, 
+            bearing=0,
+        )
+        
+        # Define the coordinates of the land cover using the calculated bounding box values
+        LANDCOVER = [[[min_lng, min_lat], [min_lng, max_lat], [max_lng, max_lat], [max_lng, min_lat]]]
+        
+        # Create a new GeoJsonLayer using the styled GeoJSON data
+        geojson_layer = pdk.Layer(
+            "GeoJsonLayer",
+            data=geojson_str,
+            get_fill_color="properties.style.fillColor",
+            get_line_color="properties.style.color",
+            line_width_min_pixels=1,
+        )
+        
+        # Create an empty list to store the parsed data
+        data = []
+        
+        # Iterate over the features in the GeoJSON data
+        for feature in geojson_data['features']:
+            # Extract the relevant information from the feature
+            coordinates = feature['geometry']['coordinates']
+            fill_color = feature['properties']['style']['fillColor']
+            line_color = feature['properties']['style']['color']
+            
+            # Append the extracted information to the data list
+            data.append({
+                'coordinates': coordinates,
+                'fill_color': fill_color,
+                'line_color': line_color,
+            })
+            
+        # Create a Pandas DataFrame from the parsed data
+        df = pd.DataFrame(data)
+        
+        polygon_layer = pdk.Layer(
+            "PolygonLayer",
+            df,
+            get_polygon="coordinates",
+            get_fill_color="fill_color",
+            get_line_color="line_color",
+            line_width_min_pixels=1,
+        )
+        
+        # Set this variable to the name of the property you want to use for extrusion height
+        selected_property = self.selected_property
+        
+        # Add an additional column to your DataFrame containing the values of the selected property
+        df['extrusion_height'] = [feature['properties'][selected_property] for feature in geojson_data['features']]
+        
+        polygon_layer = pdk.Layer(
+            "PolygonLayer",
+            df,
+            get_polygon="coordinates",
+            get_fill_color="fill_color",
+            get_line_color="line_color",
+            get_elevation="extrusion_height",
+            elevation_scale=100,
+            extruded=True,
+            line_width_min_pixels=1,
+        )
+        
+        
+        r = pdk.Deck(layers=[polygon_layer, geojson_layer], initial_view_state=view_state)
+        
+        
+        # Use a file dialog to specify the location to save the resulting HTML map
+        pydeck_file_name = filedialog.asksaveasfilename(
+            title="Save HTML map",
+            defaultextension=".html",
+            filetypes=[("HTML files", "*.html")]
+        )
+        
+        r.to_html(pydeck_file_name)
+        
+        webbrowser.open(pydeck_file_name)
+        
+        return r
+        
