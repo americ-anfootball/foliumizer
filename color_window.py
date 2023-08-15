@@ -243,6 +243,9 @@ class ColorWindowGUI(tk.Toplevel):
                 if self.app.folium_window:
                     # Add a new layer to the folium window
                     self.app.folium_window.add_layer(geojson_str)
+                    
+                    # Add a new z layer to the folium window
+                    self.app.folium_window.add_z_layer(geojson_str)
 
         # Enable the folium button in the main window
         if hasattr(self.app, 'folium_button'):
@@ -300,20 +303,17 @@ class ColorWindowGUI(tk.Toplevel):
             print(f"An error occurred in on_generate_categorical_color_map_button_click: {e}")
 
     def on_pass_categorical_map_button_click(self):
-        ## Add a print statement to see the value of the color_map attribute
-        #print(f"color_map: {self.color_map}")
-
         # Call the get_categorical_color_map function to generate a geojson string
         geojson_str = self.logic.get_categorical_color_map(self.logic.working_object_a, self.logic.working_object_b, self.color_map)
-
-        ## Add a print statement to see the value of the geojson_str variable
-        #print(f"geojson_str: {geojson_str}")
 
         if geojson_str:
             # Check if the folium_window attribute exists and is not None
             if hasattr(self.app, 'folium_window') and self.app.folium_window:
                 # Call the add_layer method of the folium_window object
                 self.app.folium_window.add_layer(geojson_str)
+                
+                # Add a new z layer to the folium window
+                self.app.folium_window.add_z_layer(geojson_str)
 
         # Enable the folium button in the main window
         if hasattr(self.app, 'folium_button'):
